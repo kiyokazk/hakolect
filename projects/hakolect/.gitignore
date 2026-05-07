@@ -1,0 +1,21 @@
+.env
+*.log
+*.sqlite3
+*.db
+
+# local artifacts
+hakolect-local-screen*.png
+.claude_*.txt
+
+# python
+backend/.venv/
+backend/data/
+backend/app/__pycache__/
+*.pyc
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+
+# macOS
+.DS_Store

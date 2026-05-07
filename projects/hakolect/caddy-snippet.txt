@@ -1,0 +1,27 @@
+tool.terracek.com {
+  # Basic Auth protects all browser access to /hakolect/*
+  # This is the primary access control for the web UI
+  basicauth /hakolect/* {
+    kiyopi <hashed_password>
+  }
+
+  # API routes for external clients (OpenClaw, Chrome extension)
+  # These require X-API-Key header (no browser session needed)
+  handle /hakolect/api/* {
+    reverse_proxy hakolect-api:8000
+  }
+
+  # Web UI - served by nginx container
+  handle /hakolect/* {
+    reverse_proxy hakolect-frontend:80
+  }
+}
+
+# Notes:
+# - basicauth uses Caddy's hashed password format. Generate with:
+#     caddy hash-password
+# - For external API access (OpenClaw, Chrome ext), pass header:
+#     X-API-Key: <value from API_KEY env var>
+# - API_KEY is defined in .env and injected into the backend container
+# - The DNS A record for tool.terracek.com pointing to the VPS is managed
+#   outside this codebase.
