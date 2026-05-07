@@ -29,6 +29,9 @@ docker compose up --build -d
 # API:    http://localhost:8000/api/hakolect/v1/
 ```
 
+> Docker binds the app to `127.0.0.1` only in the default compose file so the
+> production path is: browser/client -> Caddy -> localhost:3000/8000.
+
 ## Demo Data
 
 ```bash
@@ -72,8 +75,6 @@ npm install
 # Copy env template for local dev (points directly at localhost:8000)
 cp .env.local.example .env.local
 npm run dev
-# Optional: seed demo data
-DATABASE_URL=sqlite:///$(pwd)/data/hakolect.db python seed_demo.py
 
 # Visit: http://localhost:5173/hakolect/
 ```
@@ -99,7 +100,7 @@ DATABASE_URL=sqlite:///$(pwd)/data/hakolect.db python seed_demo.py
 **External API access (OpenClaw, Chrome extension)**
 - Pass `X-API-Key: <your key>` request header.
 - The key must match `API_KEY` in `.env`.
-- Basic Auth is still enforced at Caddy, but `X-API-Key` is the machine-readable credential.
+- Basic Auth is also enforced at Caddy for `/api/hakolect/*`.
 
 ## API Key
 
@@ -107,10 +108,23 @@ DATABASE_URL=sqlite:///$(pwd)/data/hakolect.db python seed_demo.py
 
 ## Deployment (Production)
 
-1. Set up a VPS and install Docker + Caddy.
-2. Point DNS A record for `tool.terracek.com` to the VPS IP (DNS management is out of scope for this codebase).
-3. Copy `caddy-snippet.txt` contents into your Caddyfile.
-4. Run `docker compose up -d`.
+1. Set up a VPS and install Docker Compose + Caddy.
+2. Point the DNS A record for `tool.terracek.com` to the VPS IP.
+3. Copy `.env.example` to `.env`, set a strong `API_KEY`, and create a Caddy Basic Auth hash with `caddy hash-password`.
+4. Copy `caddy-snippet.txt` into your Caddyfile and replace `<hashed_password>`.
+5. Start the app with `docker compose up --build -d`.
+6. Verify locally on the VPS:
+   - `curl -I http://127.0.0.1:3000/hakolect/`
+   - `curl http://127.0.0.1:8000/api/hakolect/health`
+7. Verify through Caddy:
+   - `curl -u '<basic-user>:<basic-pass>' https://tool.terracek.com/api/hakolect/health`
+   - open `https://tool.terracek.com/hakolect/`
+
+### Deployment notes
+
+- `docker-compose.yml` binds ports to `127.0.0.1` only, so the app is exposed publicly through Caddy, not directly.
+- Caddy proxies `/hakolect/*` to the frontend and `/api/hakolect/*` to the backend.
+- If DNS is not ready yet, you can still validate the app locally on the VPS before switching traffic.
 
 ## DB Schema
 
