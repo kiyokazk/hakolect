@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan,
-    title="Hakolect API",
+    title="hakolect API",
     description="Personal bookmark manager API",
     version="1.0.0",
 )

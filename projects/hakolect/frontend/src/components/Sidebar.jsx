@@ -59,7 +59,7 @@ function SidebarContent() {
       <div className="px-3 space-y-0.5">
         <NavItem
           icon={<Bookmark size={15} />}
-          label="All Hakolect"
+          label="All hakolect"
           count={totalCount}
           active={selectedFolderId === null}
           onClick={() => { setSelectedFolder(null); closeSidebar() }}
@@ -113,7 +113,7 @@ export default function Sidebar() {
           <div className="absolute inset-0 bg-black/40" onClick={closeSidebar} />
           <aside className="absolute left-0 top-0 h-full w-64 bg-white shadow-xl flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-              <span className="font-semibold text-gray-900 text-sm">Hakolect</span>
+              <span className="font-semibold text-gray-900 text-sm">hakolect</span>
               <button onClick={closeSidebar} className="p-1 rounded hover:bg-gray-100">
                 <X size={18} />
               </button>

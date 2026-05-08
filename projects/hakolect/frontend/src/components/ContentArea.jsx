@@ -55,7 +55,7 @@ export default function ContentArea() {
   // Breadcrumb
   let breadcrumb = []
   if (selectedFolderId === null) {
-    breadcrumb = [{ label: 'All Hakolect', id: null }]
+    breadcrumb = [{ label: 'All hakolect', id: null }]
   } else if (selectedFolderId === 'unsorted') {
     breadcrumb = [{ label: 'Unsorted', id: 'unsorted' }]
   } else {

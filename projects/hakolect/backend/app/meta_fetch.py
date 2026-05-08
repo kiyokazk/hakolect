@@ -22,7 +22,7 @@ async def fetch_meta(url: str) -> Dict[str, Any]:
         timeout = aiohttp.ClientTimeout(total=10)
         headers = {
             "User-Agent": (
-                "Mozilla/5.0 (compatible; Hakolect/1.0; +https://tool.terracek.com/hakolect)"
+                "Mozilla/5.0 (compatible; hakolect/1.0; +https://tool.terracek.com/hakolect)"
             )
         }
         async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:

@@ -43,7 +43,7 @@ export default function Header() {
         {/* Logo */}
         <div className="flex items-center gap-2 shrink-0">
           <BookmarkIcon size={20} className="text-blue-600" />
-          <span className="font-bold text-gray-900 text-lg hidden sm:block">Hakolect</span>
+          <span className="font-bold text-gray-900 text-lg hidden sm:block">hakolect</span>
         </div>
 
         {/* Search bar */}

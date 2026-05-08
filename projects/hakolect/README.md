@@ -1,10 +1,10 @@
-# Hakolect
+# hakolect
 
 Personal bookmark manager — a self-hosted, single-user web app for saving, organizing, and searching bookmarks.
 
-## What is Hakolect?
+## What is hakolect?
 
-Hakolect lets you save URLs with automatic metadata fetching (title, description, OGP image, favicon), organize them into folders, tag them, and search across everything. It's designed for one person's use, secured by Basic Auth at the reverse proxy layer.
+hakolect lets you save URLs with automatic metadata fetching (title, description, OGP image, favicon), organize them into folders, tag them, and search across everything. It's designed for one person's use, secured by Basic Auth at the reverse proxy layer.
 
 ## Tech Stack
 
@@ -40,7 +40,7 @@ source .venv/bin/activate
 DATABASE_URL=sqlite:///$(pwd)/data/hakolect.db python seed_demo.py
 ```
 
-This inserts demo folders, tags, and bookmarks for local screenshots and interaction checks.
+This inserts Japanese-centered demo folders, tags, and bookmarks for local screenshots and interaction checks.
 
 ## Dev Mode
 
@@ -62,10 +62,16 @@ uvicorn app.main:app --reload --port 8000
 ```bash
 # From backend/ with venv active:
 python seed_demo.py
+
+# If older English demo data already exists and you want to replace it:
+python seed_demo.py --force
 ```
 
-Inserts 4 folders and 13 bookmarks. Safe to run only once — skips if data already exists.
-To reset: delete `data/hakolect.db` and re-run.
+Inserts 4 folders and 13 Japanese-centered bookmarks. Safe to run only once — skips if data already exists unless `--force` is used.
+To reset manually: delete `data/hakolect.db` and re-run.
+
+> **Local seeding note:** the repository root `.env` is tuned for Docker (`DATABASE_URL=sqlite:////app/data/hakolect.db`).
+> If you run `seed_demo.py` locally from `backend/`, either set `DATABASE_URL=sqlite:///$(pwd)/data/hakolect.db` inline for that command or create `backend/.env` with the local path shown in the Backend setup section.
 
 ### Frontend
 
