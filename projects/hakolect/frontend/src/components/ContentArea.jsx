@@ -39,6 +39,7 @@ function getFolderPath(folders, folderId) {
 export default function ContentArea() {
   const selectedFolderId = useAppStore((s) => s.selectedFolderId)
   const selectedBookmarkId = useAppStore((s) => s.selectedBookmarkId)
+  const searchKeyword = useAppStore((s) => s.searchKeyword)
   const viewMode = useAppStore((s) => s.viewMode)
   const toggleViewMode = useAppStore((s) => s.toggleViewMode)
   const [activeTag, setActiveTag] = useState(null)
@@ -52,15 +53,44 @@ export default function ContentArea() {
   const bookmarks = data?.items || []
   const total = data?.total || 0
 
+  const activeFolderPath =
+    selectedFolderId !== null && selectedFolderId !== 'unsorted'
+      ? getFolderPath(foldersData, selectedFolderId)
+      : []
+
   // Breadcrumb
   let breadcrumb = []
-  if (selectedFolderId === null) {
+  if (searchKeyword) {
+    breadcrumb = [{ label: `Search results for "${searchKeyword}"`, id: 'search' }]
+  } else if (selectedFolderId === null) {
     breadcrumb = [{ label: 'All hakolect', id: null }]
   } else if (selectedFolderId === 'unsorted') {
     breadcrumb = [{ label: 'Unsorted', id: 'unsorted' }]
   } else {
-    const path = getFolderPath(foldersData, selectedFolderId)
-    breadcrumb = path.map((f) => ({ label: f.name, id: f.id }))
+    breadcrumb = activeFolderPath.map((f) => ({ label: f.name, id: f.id }))
+  }
+
+  let emptyState = {
+    title: 'No bookmarks yet',
+    description: 'Add your first bookmark with the + Add button, or drop a URL in the Slack channel.',
+  }
+
+  if (searchKeyword) {
+    emptyState = {
+      title: `No bookmarks found for "${searchKeyword}"`,
+      description: 'Try a different search term.',
+    }
+  } else if (selectedFolderId === 'unsorted') {
+    emptyState = {
+      title: 'All caught up!',
+      description: 'No unsorted bookmarks.',
+    }
+  } else if (selectedFolderId !== null) {
+    const folderName = activeFolderPath[activeFolderPath.length - 1]?.name || 'This folder'
+    emptyState = {
+      title: `${folderName} is empty`,
+      description: 'Drag bookmarks here or add new ones.',
+    }
   }
 
   return (
@@ -120,17 +150,19 @@ export default function ContentArea() {
 
       {isError && (
         <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-          <p className="font-medium mb-1">Failed to load hakolect items</p>
+          <p className="font-medium mb-1">Failed to load bookmarks</p>
           <p className="text-sm">Check that the API is running.</p>
         </div>
       )}
 
       {!isLoading && !isError && bookmarks.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400 text-center max-w-md mx-auto">
           <Inbox size={48} className="mb-4 opacity-30" />
-          <p className="font-medium text-gray-600 mb-1">Nothing saved yet</p>
-          <p className="text-sm">Save your first link with the "+ Add" button.</p>
-          <p className="text-xs mt-2">For local demo data: <code className="bg-gray-100 px-1.5 py-0.5 rounded">python seed_demo.py</code></p>
+          <p className="font-medium text-gray-600 mb-1">{emptyState.title}</p>
+          <p className="text-sm">{emptyState.description}</p>
+          {!searchKeyword && selectedFolderId === null && (
+            <p className="text-xs mt-2">For local demo data: <code className="bg-gray-100 px-1.5 py-0.5 rounded">python seed_demo.py</code></p>
+          )}
         </div>
       )}
 
@@ -172,9 +204,9 @@ function BookmarkListItem({ bookmark, isSelected }) {
     setConfirmDelete(false)
     try {
       await deleteMutation.mutateAsync(bookmark.id)
-      addToast('Item deleted', 'success')
+      addToast('Bookmark deleted', 'success')
     } catch {
-      addToast('Failed to delete item', 'error')
+      addToast('Failed to delete bookmark', 'error')
     }
   }
 
@@ -231,7 +263,7 @@ function BookmarkListItem({ bookmark, isSelected }) {
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete this item?"
+        title="Delete bookmark?"
         message={`"${bookmark.title || bookmark.url}" will be permanently deleted.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}

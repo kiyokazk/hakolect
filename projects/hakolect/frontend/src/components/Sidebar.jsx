@@ -73,14 +73,16 @@ function SidebarContent() {
         />
       </div>
 
-      {foldersData.length > 0 && (
-        <>
-          <div className="mx-3 my-3 border-t border-gray-200" />
-          <div className="px-3">
-            <FolderTree folders={foldersData} />
-          </div>
-        </>
-      )}
+      <div className="mx-3 my-3 border-t border-gray-200" />
+      <div className="px-3">
+        {foldersData.length > 0 ? (
+          <FolderTree folders={foldersData} />
+        ) : (
+          <p className="px-3 py-2 text-xs text-gray-400">
+            No folders yet. Click + New folder to get started.
+          </p>
+        )}
+      </div>
 
       <div className="mx-3 my-3 border-t border-gray-200" />
       <div className="px-3">

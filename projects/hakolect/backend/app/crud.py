@@ -4,6 +4,21 @@ from sqlalchemy import func, or_
 from . import models, schemas
 
 
+def _collect_descendant_folder_ids(folders: List[models.Folder], folder_id: int) -> List[int]:
+    child_map: Dict[Optional[int], List[models.Folder]] = {}
+    for folder in folders:
+        child_map.setdefault(folder.parent_id, []).append(folder)
+
+    ids: List[int] = []
+    stack = [folder_id]
+    while stack:
+        current_id = stack.pop()
+        ids.append(current_id)
+        for child in child_map.get(current_id, []):
+            stack.append(child.id)
+    return ids
+
+
 # ── Bookmarks ──────────────────────────────────────────────────────────────────
 
 def get_bookmarks(
@@ -28,8 +43,11 @@ def get_bookmarks(
         except (ValueError, TypeError):
             pass
 
+    if tag or keyword:
+        query = query.outerjoin(models.BookmarkTag).outerjoin(models.Tag)
+
     if tag:
-        query = query.join(models.BookmarkTag).join(models.Tag).filter(models.Tag.name == tag)
+        query = query.filter(models.Tag.name == tag)
 
     if keyword:
         kw = f"%{keyword}%"
@@ -39,8 +57,11 @@ def get_bookmarks(
                 models.Bookmark.url.ilike(kw),
                 models.Bookmark.description.ilike(kw),
                 models.Bookmark.comment.ilike(kw),
+                models.Tag.name.ilike(kw),
             )
         )
+
+    query = query.distinct()
 
     sort_map = {
         "created_desc": models.Bookmark.created_at.desc(),
@@ -208,21 +229,32 @@ def update_folder(db: Session, folder_id: int, data: schemas.FolderUpdate):
     return folder
 
 
-def delete_folder(db: Session, folder_id: int) -> bool:
+def delete_folder(db: Session, folder_id: int):
     folder = get_folder_by_id(db, folder_id)
     if not folder:
-        return False
-    # Move bookmarks to unsorted
-    db.query(models.Bookmark).filter(models.Bookmark.folder_id == folder_id).update(
-        {"folder_id": None}
+        return None
+
+    folders = db.query(models.Folder).all()
+    subtree_ids = _collect_descendant_folder_ids(folders, folder_id)
+
+    moved_bookmarks_count = (
+        db.query(models.Bookmark)
+        .filter(models.Bookmark.folder_id.in_(subtree_ids))
+        .count()
     )
-    # Re-parent children to parent of deleted folder
-    db.query(models.Folder).filter(models.Folder.parent_id == folder_id).update(
-        {"parent_id": folder.parent_id}
+    if moved_bookmarks_count:
+        db.query(models.Bookmark).filter(models.Bookmark.folder_id.in_(subtree_ids)).update(
+            {"folder_id": None}, synchronize_session=False
+        )
+
+    db.query(models.Folder).filter(models.Folder.id.in_(subtree_ids)).delete(
+        synchronize_session=False
     )
-    db.delete(folder)
     db.commit()
-    return True
+    return {
+        "deleted_folder_id": folder_id,
+        "moved_bookmarks_count": moved_bookmarks_count,
+    }
 
 
 def reorder_folders(db: Session, items: List[schemas.ReorderItem]):

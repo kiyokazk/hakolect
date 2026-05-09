@@ -121,6 +121,11 @@ class ReorderRequest(BaseModel):
     items: List[ReorderItem]
 
 
+class DeleteFolderResponse(BaseModel):
+    deleted_folder_id: int
+    moved_bookmarks_count: int
+
+
 # Duplicate error response
 class DuplicateBookmarkError(BaseModel):
     detail: str

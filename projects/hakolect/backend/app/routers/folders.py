@@ -47,12 +47,13 @@ def update_folder(
     return folder
 
 
-@router.delete("/{folder_id}", status_code=204)
+@router.delete("/{folder_id}", response_model=schemas.DeleteFolderResponse)
 def delete_folder(
     folder_id: int,
     db: Session = Depends(get_db),
     _: Optional[str] = Depends(optional_api_key),
 ):
-    ok = crud.delete_folder(db, folder_id)
-    if not ok:
+    result = crud.delete_folder(db, folder_id)
+    if not result:
         raise HTTPException(status_code=404, detail="Folder not found")
+    return result
