@@ -106,9 +106,9 @@ export default function DetailPanel() {
     try {
       await deleteMutation.mutateAsync(selectedBookmarkId)
       closeDetail()
-      addToast('Bookmark deleted', 'success')
+      addToast('Item deleted', 'success')
     } catch {
-      addToast('Failed to delete bookmark', 'error')
+      addToast('Failed to delete item', 'error')
     }
   }
 
@@ -119,7 +119,7 @@ export default function DetailPanel() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 shrink-0">
         <span className="font-semibold text-gray-900 text-sm">
-          {editMode ? 'Edit Bookmark' : 'Bookmark Detail'}
+          {editMode ? 'Edit item' : 'Item details'}
         </span>
         <div className="flex items-center gap-1">
           {!editMode && (
@@ -324,8 +324,8 @@ export default function DetailPanel() {
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete bookmark?"
-        message={`"${bookmark?.title || bookmark?.url || 'This bookmark'}" will be permanently deleted.`}
+        title="Delete this item?"
+        message={`"${bookmark?.title || bookmark?.url || 'This item'}" will be permanently deleted.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
       />

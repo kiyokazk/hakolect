@@ -39,7 +39,7 @@ export default function QuickAddModal({ onClose }) {
         tags: [],
       })
       setSuccess(true)
-      addToast('Bookmark saved to Unsorted', 'success')
+      addToast('Saved to Unsorted', 'success')
       setTimeout(onClose, 1200)
     } catch (err) {
       const status = err.response?.status
@@ -48,7 +48,7 @@ export default function QuickAddModal({ onClose }) {
         setDuplicateId(existingId)
         setError('This URL is already saved.')
       } else {
-        setError(err.userMessage || 'Failed to add bookmark')
+        setError(err.userMessage || 'Failed to save link')
       }
     }
   }
@@ -74,7 +74,7 @@ export default function QuickAddModal({ onClose }) {
         {success ? (
           <div className="text-center py-4">
             <div className="text-green-600 font-medium mb-1">Saved!</div>
-            <p className="text-sm text-gray-500">Saved to Unsorted. Edit details from card.</p>
+            <p className="text-sm text-gray-500">Saved to Unsorted. Open the item to organize it later.</p>
           </div>
         ) : (
           <>
@@ -114,7 +114,7 @@ export default function QuickAddModal({ onClose }) {
             )}
 
             <p className="text-xs text-gray-400 mt-3">
-              Saved to Unsorted. Edit details from card.
+              Saved to Unsorted. Save first, organize later.
             </p>
           </>
         )}

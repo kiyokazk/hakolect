@@ -120,7 +120,7 @@ export default function ContentArea() {
 
       {isError && (
         <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-          <p className="font-medium mb-1">Failed to load bookmarks</p>
+          <p className="font-medium mb-1">Failed to load hakolect items</p>
           <p className="text-sm">Check that the API is running.</p>
         </div>
       )}
@@ -128,8 +128,8 @@ export default function ContentArea() {
       {!isLoading && !isError && bookmarks.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
           <Inbox size={48} className="mb-4 opacity-30" />
-          <p className="font-medium text-gray-600 mb-1">No bookmarks yet</p>
-          <p className="text-sm">Add your first bookmark with the "+ Add" button.</p>
+          <p className="font-medium text-gray-600 mb-1">Nothing saved yet</p>
+          <p className="text-sm">Save your first link with the "+ Add" button.</p>
           <p className="text-xs mt-2">For local demo data: <code className="bg-gray-100 px-1.5 py-0.5 rounded">python seed_demo.py</code></p>
         </div>
       )}
@@ -172,9 +172,9 @@ function BookmarkListItem({ bookmark, isSelected }) {
     setConfirmDelete(false)
     try {
       await deleteMutation.mutateAsync(bookmark.id)
-      addToast('Bookmark deleted', 'success')
+      addToast('Item deleted', 'success')
     } catch {
-      addToast('Failed to delete bookmark', 'error')
+      addToast('Failed to delete item', 'error')
     }
   }
 
@@ -231,7 +231,7 @@ function BookmarkListItem({ bookmark, isSelected }) {
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete bookmark?"
+        title="Delete this item?"
         message={`"${bookmark.title || bookmark.url}" will be permanently deleted.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}

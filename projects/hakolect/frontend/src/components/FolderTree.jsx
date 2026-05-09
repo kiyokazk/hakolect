@@ -49,7 +49,7 @@ function FolderItem({ folder, depth = 0 }) {
     setConfirmDelete(false)
     try {
       await deleteFolder.mutateAsync(folder.id)
-      addToast('Folder deleted. Bookmarks moved to Unsorted.', 'info')
+      addToast('Folder deleted. Items moved to Unsorted.', 'info')
       if (selectedFolderId === folder.id) {
         setSelectedFolder(null)
       }
@@ -172,7 +172,7 @@ function FolderItem({ folder, depth = 0 }) {
       <ConfirmDialog
         open={confirmDelete}
         title="Delete folder?"
-        message={`"${folder.name}" will be deleted. Bookmarks inside will be moved to Unsorted.`}
+        message={`"${folder.name}" will be deleted. Items inside will be moved to Unsorted.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
       />

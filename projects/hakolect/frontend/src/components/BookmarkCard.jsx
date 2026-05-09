@@ -35,9 +35,9 @@ export default function BookmarkCard({ bookmark, isSelected }) {
     setConfirmDelete(false)
     try {
       await deleteMutation.mutateAsync(bookmark.id)
-      addToast('Bookmark deleted', 'success')
+      addToast('Item deleted', 'success')
     } catch {
-      addToast('Failed to delete bookmark', 'error')
+      addToast('Failed to delete item', 'error')
     }
   }
 
@@ -139,7 +139,7 @@ export default function BookmarkCard({ bookmark, isSelected }) {
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete bookmark?"
+        title="Delete this item?"
         message={`"${bookmark.title || bookmark.url}" will be permanently deleted.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
