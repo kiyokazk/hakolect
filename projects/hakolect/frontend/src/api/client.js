@@ -1,6 +1,9 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/hakolect/v1'
+const configuredBaseURL = import.meta.env.VITE_API_BASE_URL
+const baseURL = import.meta.env.PROD && configuredBaseURL?.includes('localhost')
+  ? '/api/hakolect/v1'
+  : configuredBaseURL || '/api/hakolect/v1'
 
 const client = axios.create({
   baseURL,
@@ -30,10 +33,14 @@ client.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    const validationMessage = Array.isArray(detail)
+      ? detail.map((item) => item.msg).filter(Boolean)[0]
+      : null
+
     const message =
       typeof detail === 'string'
         ? detail
-        : detail?.message || error.message || 'An error occurred'
+        : validationMessage || detail?.message || error.message || 'An error occurred'
 
     error.userMessage = message
     return Promise.reject(error)

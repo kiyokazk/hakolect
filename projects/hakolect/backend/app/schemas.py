@@ -1,6 +1,20 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, HttpUrl
+from urllib.parse import urlparse
+from pydantic import BaseModel, field_validator
+
+
+def normalize_http_url(value: str) -> str:
+    value = value.strip()
+    if not value:
+        raise ValueError("URL is required")
+
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("URL must start with http:// or https://")
+    if not parsed.netloc:
+        raise ValueError("URL must include a valid host")
+    return value
 
 
 # Tag schemas
@@ -68,6 +82,11 @@ class BookmarkBase(BaseModel):
 class BookmarkCreate(BookmarkBase):
     tags: List[str] = []
 
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        return normalize_http_url(value)
+
 
 class BookmarkUpdate(BaseModel):
     url: Optional[str] = None
@@ -80,6 +99,13 @@ class BookmarkUpdate(BaseModel):
     sort_order: Optional[int] = None
     source: Optional[str] = None
     tags: Optional[List[str]] = None
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        return normalize_http_url(value)
 
 
 class BookmarkOut(BookmarkBase):
@@ -101,6 +127,11 @@ class BookmarkListResponse(BaseModel):
 # Meta fetch schemas
 class FetchMetaRequest(BaseModel):
     url: str
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        return normalize_http_url(value)
 
 
 class FetchMetaResponse(BaseModel):

@@ -4,6 +4,25 @@ import { useCreateBookmark, useFetchMeta } from '../hooks/useBookmarks'
 import { useToast } from './Toast'
 import useAppStore from '../store/useAppStore'
 
+function normalizeUrlInput(value) {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  const withProtocol = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`
+
+  try {
+    const parsed = new URL(withProtocol)
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return null
+    }
+    return parsed.toString()
+  } catch {
+    return null
+  }
+}
+
 export default function QuickAddModal({ onClose }) {
   const [url, setUrl] = useState('')
   const [error, setError] = useState(null)
@@ -19,27 +38,41 @@ export default function QuickAddModal({ onClose }) {
     setError(null)
     setDuplicateId(null)
 
-    const trimmed = url.trim()
-    if (!trimmed) {
-      setError('Please enter a URL')
+    const normalizedUrl = normalizeUrlInput(url)
+    if (!normalizedUrl) {
+      setError('Please enter a valid http(s) URL')
       return
     }
 
+    let meta = {
+      title: null,
+      description: null,
+      ogp_image_url: null,
+      favicon_url: null,
+    }
+    let metadataSkipped = false
+
     try {
-      // Fetch metadata first
-      const meta = await fetchMetaMutation.mutateAsync(trimmed)
-      // Create bookmark
-      const bookmark = await createMutation.mutateAsync({
-        url: trimmed,
+      meta = await fetchMetaMutation.mutateAsync(normalizedUrl)
+    } catch {
+      metadataSkipped = true
+    }
+
+    try {
+      await createMutation.mutateAsync({
+        url: normalizedUrl,
         title: meta.title || null,
         description: meta.description || null,
         ogp_image_url: meta.ogp_image_url || null,
         favicon_url: meta.favicon_url || null,
-        folder_id: null, // unsorted
+        folder_id: null,
         tags: [],
       })
       setSuccess(true)
-      addToast('Saved to Unsorted', 'success')
+      addToast(
+        metadataSkipped ? 'Saved to Unsorted (without metadata)' : 'Saved to Unsorted',
+        'success'
+      )
       setTimeout(onClose, 1200)
     } catch (err) {
       const status = err.response?.status
