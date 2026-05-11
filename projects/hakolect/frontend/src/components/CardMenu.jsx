@@ -8,11 +8,15 @@ const VIEWPORT_MARGIN = 12
 const MENU_OFFSET = 8
 const MAX_MENU_HEIGHT = 220
 
+function getAnchorRect(anchorRef) {
+  return anchorRef?.current?.getBoundingClientRect?.() ?? null
+}
+
 export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, anchorRef }) {
   const ref = useRef(null)
   const detailPanelOpen = useAppStore((s) => s.detailPanelOpen)
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }))
-  const [position, setPosition] = useState({ top: 0, left: 0, maxHeight: MAX_MENU_HEIGHT })
+  const [position, setPosition] = useState(null)
 
   const actions = useMemo(
     () => [
@@ -39,9 +43,8 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
   }, [])
 
   useLayoutEffect(() => {
-    if (!anchorRef?.current) return
-
-    const rect = anchorRef.current.getBoundingClientRect()
+    const rect = getAnchorRect(anchorRef)
+    if (!rect) return
     const menuHeight = ref.current?.offsetHeight ?? 170
     const detailPanel = document.querySelector('[data-hakolect-detail-panel="true"]')
     const detailRect = detailPanel?.getBoundingClientRect()
@@ -71,6 +74,19 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
     const maxHeight = Math.max(120, Math.min(MAX_MENU_HEIGHT, viewport.height - VIEWPORT_MARGIN * 2))
     setPosition({ top, left, maxHeight })
   }, [anchorRef, detailPanelOpen, viewport.height, viewport.width])
+
+  useEffect(() => {
+    if (position) return
+    const rect = getAnchorRect(anchorRef)
+    if (!rect) return
+
+    const fallbackTop = Math.max(VIEWPORT_MARGIN, Math.min(rect.bottom + MENU_OFFSET, viewport.height - MAX_MENU_HEIGHT - VIEWPORT_MARGIN))
+    const fallbackLeft = Math.max(
+      VIEWPORT_MARGIN,
+      Math.min(rect.right - DESKTOP_MENU_WIDTH, viewport.width - DESKTOP_MENU_WIDTH - VIEWPORT_MARGIN)
+    )
+    setPosition({ top: fallbackTop, left: fallbackLeft, maxHeight: MAX_MENU_HEIGHT })
+  }, [anchorRef, position, viewport.height, viewport.width])
 
   useEffect(() => {
     function handlePointerDown(e) {
@@ -111,6 +127,8 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
       </button>
     )
   }
+
+  if (!position) return null
 
   return createPortal(
     <div
