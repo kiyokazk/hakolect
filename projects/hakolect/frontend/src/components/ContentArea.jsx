@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { LayoutGrid, List, ChevronRight, Inbox, MoreHorizontal } from 'lucide-react'
 import clsx from 'clsx'
 import BookmarkCard from './BookmarkCard'
@@ -199,6 +199,7 @@ function BookmarkListItem({ bookmark, isSelected }) {
   const { addToast } = useToast()
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const menuButtonRef = useRef(null)
 
   async function handleDelete() {
     setConfirmDelete(false)
@@ -246,12 +247,14 @@ function BookmarkListItem({ bookmark, isSelected }) {
         </div>
       )}
       <button
+        ref={menuButtonRef}
         onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v) }}
         className="text-xs text-gray-400 hover:text-blue-600 px-2 py-1 rounded hover:bg-blue-50 transition-colors shrink-0 relative"
       >
         <MoreHorizontal size={16} />
         {menuOpen && (
           <CardMenu
+            anchorRef={menuButtonRef}
             onDetail={() => openDetail(bookmark.id)}
             onEdit={() => openDetail(bookmark.id)}
             onMove={() => openDetail(bookmark.id)}

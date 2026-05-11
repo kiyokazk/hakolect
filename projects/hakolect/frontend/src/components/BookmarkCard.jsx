@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { MoreHorizontal, ExternalLink } from 'lucide-react'
 import clsx from 'clsx'
 import CardMenu from './CardMenu'
@@ -18,6 +18,7 @@ function getDomain(url) {
 export default function BookmarkCard({ bookmark, isSelected }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const menuButtonRef = useRef(null)
   const openDetail = useAppStore((s) => s.openDetail)
   const deleteMutation = useDeleteBookmark()
   const { addToast } = useToast()
@@ -73,6 +74,7 @@ export default function BookmarkCard({ bookmark, isSelected }) {
           )}
           {/* Menu button */}
           <button
+            ref={menuButtonRef}
             onClick={handleMenuClick}
             className={clsx(
               'absolute right-1.5 top-1.5 p-1 rounded-md bg-white/90 text-gray-600 hover:text-gray-900 hover:bg-white transition-all shadow-sm',
@@ -83,6 +85,7 @@ export default function BookmarkCard({ bookmark, isSelected }) {
           </button>
           {menuOpen && (
             <CardMenu
+              anchorRef={menuButtonRef}
               onDetail={() => openDetail(bookmark.id)}
               onEdit={() => openDetail(bookmark.id)}
               onMove={() => openDetail(bookmark.id)}
