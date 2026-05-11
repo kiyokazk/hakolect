@@ -335,7 +335,7 @@ export default function DetailPanel() {
   // Desktop: slide-in right panel
   if (isDesktop) {
     return (
-      <div className="fixed top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col transition-transform">
+      <div data-hakolect-detail-panel="true" className="fixed top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col transition-transform">
         {content}
       </div>
     )
