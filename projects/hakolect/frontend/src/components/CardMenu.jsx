@@ -107,22 +107,38 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
   useEffect(() => {
     if (position || !anchorRef?.current) return
 
-    const rect = getAnchorRect(anchorRef)
-    if (!rect) return
+    let rafId = null
+    let attempts = 0
 
-    const fallbackHeight = 170
-    const fallbackTop = clamp(
-      rect.bottom + MENU_OFFSET,
-      VIEWPORT_MARGIN,
-      viewport.height - fallbackHeight - VIEWPORT_MARGIN
-    )
-    const fallbackLeft = clamp(
-      rect.right - DESKTOP_MENU_WIDTH,
-      VIEWPORT_MARGIN,
-      viewport.width - DESKTOP_MENU_WIDTH - VIEWPORT_MARGIN
-    )
+    function applyFallbackPosition() {
+      const rect = getAnchorRect(anchorRef)
+      if (rect) {
+        const fallbackHeight = 170
+        const fallbackTop = clamp(
+          rect.bottom + MENU_OFFSET,
+          VIEWPORT_MARGIN,
+          viewport.height - fallbackHeight - VIEWPORT_MARGIN
+        )
+        const fallbackLeft = clamp(
+          rect.right - DESKTOP_MENU_WIDTH,
+          VIEWPORT_MARGIN,
+          viewport.width - DESKTOP_MENU_WIDTH - VIEWPORT_MARGIN
+        )
 
-    setPosition({ top: fallbackTop, left: fallbackLeft, maxHeight: MAX_MENU_HEIGHT })
+        setPosition({ top: fallbackTop, left: fallbackLeft, maxHeight: MAX_MENU_HEIGHT })
+        return
+      }
+
+      if (attempts < 10) {
+        attempts += 1
+        rafId = window.requestAnimationFrame(applyFallbackPosition)
+      }
+    }
+
+    applyFallbackPosition()
+    return () => {
+      if (rafId) window.cancelAnimationFrame(rafId)
+    }
   }, [anchorRef, position, viewport.height, viewport.width])
 
   useLayoutEffect(() => {
