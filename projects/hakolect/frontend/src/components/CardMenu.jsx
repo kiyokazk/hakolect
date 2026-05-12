@@ -12,6 +12,24 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max)
 }
 
+function isOriginRect(rect) {
+  return rect.x === 0 && rect.y === 0 && rect.width === 0 && rect.height === 0
+}
+
+function getAnchorRect(anchorRef) {
+  const anchor = anchorRef?.current
+  if (!anchor) return null
+
+  const candidates = [anchor, anchor.querySelector?.('svg')].filter(Boolean)
+  for (const candidate of candidates) {
+    const rect = candidate.getBoundingClientRect?.()
+    if (!rect || isOriginRect(rect)) continue
+    return rect
+  }
+
+  return null
+}
+
 export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, anchorRef }) {
   const ref = useRef(null)
   const detailPanelOpen = useAppStore((s) => s.detailPanelOpen)
@@ -29,14 +47,11 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
   )
 
   const updatePosition = useCallback(() => {
-    if (!anchorRef?.current || !ref.current) {
-      setPosition(null)
-      return
-    }
+    if (!ref.current) return
 
-    const rect = anchorRef.current.getBoundingClientRect()
-    if (rect.width === 0 && rect.height === 0) {
-      setPosition(null)
+    const rect = getAnchorRect(anchorRef)
+    if (!rect) {
+      setPosition((current) => current)
       return
     }
 
@@ -88,6 +103,27 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
       window.removeEventListener('orientationchange', handleResize)
     }
   }, [])
+
+  useEffect(() => {
+    if (position || !anchorRef?.current) return
+
+    const rect = getAnchorRect(anchorRef)
+    if (!rect) return
+
+    const fallbackHeight = 170
+    const fallbackTop = clamp(
+      rect.bottom + MENU_OFFSET,
+      VIEWPORT_MARGIN,
+      viewport.height - fallbackHeight - VIEWPORT_MARGIN
+    )
+    const fallbackLeft = clamp(
+      rect.right - DESKTOP_MENU_WIDTH,
+      VIEWPORT_MARGIN,
+      viewport.width - DESKTOP_MENU_WIDTH - VIEWPORT_MARGIN
+    )
+
+    setPosition({ top: fallbackTop, left: fallbackLeft, maxHeight: MAX_MENU_HEIGHT })
+  }, [anchorRef, position, viewport.height, viewport.width])
 
   useLayoutEffect(() => {
     updatePosition()
