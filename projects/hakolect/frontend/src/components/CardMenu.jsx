@@ -203,7 +203,7 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
         top: position?.top ?? VIEWPORT_MARGIN,
         left: position?.left ?? VIEWPORT_MARGIN,
         maxHeight: position?.maxHeight ?? MAX_MENU_HEIGHT,
-        visibility: position ? 'visible' : 'hidden',
+        visibility: 'visible',
       }}
     >
       {actions.slice(0, 3).map(renderItem)}
