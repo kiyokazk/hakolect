@@ -105,7 +105,7 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
   }, [])
 
   useEffect(() => {
-    if (position || !anchorRef?.current) return
+    if (position) return
 
     let rafId = null
     let attempts = 0
