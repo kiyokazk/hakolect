@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, ExternalLink, Pencil, Check, ChevronRight, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useBookmark, useUpdateBookmark, useDeleteBookmark } from '../hooks/useBookmarks'
@@ -31,6 +31,7 @@ function flattenFolders(folders, depth = 0) {
 export default function DetailPanel() {
   const selectedBookmarkId = useAppStore((s) => s.selectedBookmarkId)
   const detailPanelOpen = useAppStore((s) => s.detailPanelOpen)
+  const detailPanelMode = useAppStore((s) => s.detailPanelMode)
   const closeDetail = useAppStore((s) => s.closeDetail)
   const isDesktop = useIsDesktop()
 
@@ -44,6 +45,8 @@ export default function DetailPanel() {
   const [form, setForm] = useState({})
   const [tagInput, setTagInput] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const titleInputRef = useRef(null)
+  const folderSelectRef = useRef(null)
 
   useEffect(() => {
     if (!bookmark) return
@@ -55,8 +58,19 @@ export default function DetailPanel() {
       tags: bookmark.tags?.map((t) => t.name) || [],
     })
     setTagInput('')
-    setEditMode(false)
-  }, [bookmark])
+    setEditMode(detailPanelMode === 'edit' || detailPanelMode === 'move')
+  }, [bookmark, detailPanelMode])
+
+  useEffect(() => {
+    if (!detailPanelOpen || !bookmark) return
+
+    if (detailPanelMode === 'edit') {
+      window.requestAnimationFrame(() => titleInputRef.current?.focus())
+    }
+    if (detailPanelMode === 'move') {
+      window.requestAnimationFrame(() => folderSelectRef.current?.focus())
+    }
+  }, [bookmark, detailPanelMode, detailPanelOpen])
 
   function resetForm() {
     if (!bookmark) return
@@ -82,10 +96,10 @@ export default function DetailPanel() {
           tags: form.tags,
         },
       })
-      addToast('Saved', 'success')
+      addToast(detailPanelMode === 'move' ? 'Item moved' : 'Saved', 'success')
       setEditMode(false)
     } catch {
-      addToast('Failed to save', 'error')
+      addToast(detailPanelMode === 'move' ? 'Failed to move item' : 'Failed to save', 'error')
     }
   }
 
@@ -113,13 +127,15 @@ export default function DetailPanel() {
   }
 
   const flatFolders = flattenFolders(folders)
+  const isMoveMode = detailPanelMode === 'move'
+  const showEditChrome = editMode && !isMoveMode
+  const panelTitle = isMoveMode ? 'Move to folder' : editMode ? 'Edit item' : 'Item details'
 
   const content = (
-    <div className="flex flex-col h-full">
-      {/* Header */}
+    <div className="flex flex-col h-full" data-detail-panel-mode={detailPanelMode}>
       <div className="flex items-center justify-between p-4 border-b border-gray-200 shrink-0">
-        <span className="font-semibold text-gray-900 text-sm">
-          {editMode ? 'Edit item' : 'Item details'}
+        <span className="font-semibold text-gray-900 text-sm" data-detail-panel-title={detailPanelMode}>
+          {panelTitle}
         </span>
         <div className="flex items-center gap-1">
           {!editMode && (
@@ -149,13 +165,11 @@ export default function DetailPanel() {
         </div>
       </div>
 
-      {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {isLoading && <p className="text-sm text-gray-500">Loading...</p>}
         {bookmark && (
           <>
-            {/* OGP image */}
-            {bookmark.ogp_image_url && (
+            {bookmark.ogp_image_url && !isMoveMode && (
               <img
                 src={bookmark.ogp_image_url}
                 alt=""
@@ -164,11 +178,11 @@ export default function DetailPanel() {
               />
             )}
 
-            {/* Title */}
             {editMode ? (
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Title</label>
                 <input
+                  ref={titleInputRef}
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -182,7 +196,6 @@ export default function DetailPanel() {
               </div>
             )}
 
-            {/* URL */}
             <a
               href={bookmark.url}
               target="_blank"
@@ -194,16 +207,24 @@ export default function DetailPanel() {
               {bookmark.url}
             </a>
 
-            {/* Description */}
             {bookmark.description && !editMode && (
               <p className="text-sm text-gray-600 leading-relaxed">{bookmark.description}</p>
             )}
 
-            {/* Folder */}
             {editMode ? (
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Folder</label>
+              <div
+                className={clsx(
+                  'space-y-2',
+                  isMoveMode && 'rounded-xl border border-blue-200 bg-blue-50/60 p-3'
+                )}
+                data-move-shortcut={isMoveMode ? 'true' : 'false'}
+              >
+                <label className="block text-xs text-gray-500">Folder</label>
+                {isMoveMode && (
+                  <p className="text-xs text-blue-700">Choose the destination folder for this item.</p>
+                )}
                 <select
+                  ref={folderSelectRef}
                   value={form.folder_id}
                   onChange={(e) => setForm((f) => ({ ...f, folder_id: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -225,8 +246,7 @@ export default function DetailPanel() {
               )
             )}
 
-            {/* Tags */}
-            {editMode ? (
+            {showEditChrome ? (
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Tags</label>
                 <div className="flex flex-wrap gap-1 mb-2">
@@ -256,7 +276,7 @@ export default function DetailPanel() {
                 />
               </div>
             ) : (
-              bookmark.tags && bookmark.tags.length > 0 && (
+              !editMode && bookmark.tags && bookmark.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {bookmark.tags.map((tag) => (
                     <span
@@ -270,8 +290,7 @@ export default function DetailPanel() {
               )
             )}
 
-            {/* Comment */}
-            {editMode ? (
+            {showEditChrome ? (
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Comment</label>
                 <textarea
@@ -282,7 +301,7 @@ export default function DetailPanel() {
                 />
               </div>
             ) : (
-              bookmark.comment && (
+              !editMode && bookmark.comment && (
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Comment</p>
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">{bookmark.comment}</p>
@@ -290,7 +309,6 @@ export default function DetailPanel() {
               )
             )}
 
-            {/* Metadata */}
             {!editMode && (
               <div className="text-xs text-gray-400 space-y-0.5 pt-2 border-t border-gray-100">
                 {bookmark.source && <p>Source: {bookmark.source}</p>}
@@ -302,7 +320,6 @@ export default function DetailPanel() {
         )}
       </div>
 
-      {/* Footer (edit mode) */}
       {editMode && (
         <div className="flex gap-2 p-4 border-t border-gray-200 shrink-0">
           <button
@@ -311,7 +328,7 @@ export default function DetailPanel() {
             className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 text-white text-sm py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
           >
             <Check size={14} />
-            {updateMutation.isPending ? 'Saving...' : 'Save'}
+            {updateMutation.isPending ? (isMoveMode ? 'Moving...' : 'Saving...') : (isMoveMode ? 'Move' : 'Save')}
           </button>
           <button
             onClick={() => { resetForm(); setEditMode(false) }}
@@ -332,7 +349,6 @@ export default function DetailPanel() {
     </div>
   )
 
-  // Desktop: slide-in right panel
   if (isDesktop) {
     return (
       <div data-hakolect-detail-panel="true" className="fixed top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-xl z-40 flex flex-col transition-transform">
@@ -341,7 +357,6 @@ export default function DetailPanel() {
     )
   }
 
-  // Mobile: modal overlay
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/40" onClick={() => { resetForm(); closeDetail(); setEditMode(false) }} />

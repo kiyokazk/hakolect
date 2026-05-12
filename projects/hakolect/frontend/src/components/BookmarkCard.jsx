@@ -52,6 +52,8 @@ export default function BookmarkCard({ bookmark, isSelected }) {
     const nextOpen = !menuOpen
     if (nextOpen) {
       setAnchorRect(getMenuAnchorRect(e.currentTarget))
+    } else {
+      setAnchorRect(null)
     }
     setMenuOpen(nextOpen)
   }
@@ -111,9 +113,9 @@ export default function BookmarkCard({ bookmark, isSelected }) {
             <CardMenu
               anchorRef={menuButtonRef}
               anchorRect={anchorRect}
-              onDetail={() => openDetail(bookmark.id)}
-              onEdit={() => openDetail(bookmark.id)}
-              onMove={() => openDetail(bookmark.id)}
+              onDetail={() => openDetail(bookmark.id, 'detail')}
+              onEdit={() => openDetail(bookmark.id, 'edit')}
+              onMove={() => openDetail(bookmark.id, 'move')}
               onDelete={() => setConfirmDelete(true)}
               onClose={() => {
                 setMenuOpen(false)

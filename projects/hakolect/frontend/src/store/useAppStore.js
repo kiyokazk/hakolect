@@ -9,6 +9,7 @@ const useAppStore = create((set) => ({
   // Detail panel
   selectedBookmarkId: null,
   detailPanelOpen: false,
+  detailPanelMode: 'detail',
 
   // View
   viewMode: 'grid', // 'grid' | 'list'
@@ -20,11 +21,11 @@ const useAppStore = create((set) => ({
   setSearchKeyword: (keyword) =>
     set({ searchKeyword: keyword }),
 
-  openDetail: (bookmarkId) =>
-    set({ selectedBookmarkId: bookmarkId, detailPanelOpen: true }),
+  openDetail: (bookmarkId, mode = 'detail') =>
+    set({ selectedBookmarkId: bookmarkId, detailPanelOpen: true, detailPanelMode: mode }),
 
   closeDetail: () =>
-    set({ selectedBookmarkId: null, detailPanelOpen: false }),
+    set({ selectedBookmarkId: null, detailPanelOpen: false, detailPanelMode: 'detail' }),
 
   toggleViewMode: () =>
     set((state) => ({ viewMode: state.viewMode === 'grid' ? 'list' : 'grid' })),
