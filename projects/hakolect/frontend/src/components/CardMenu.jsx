@@ -16,25 +16,45 @@ function isOriginRect(rect) {
   return rect.x === 0 && rect.y === 0 && rect.width === 0 && rect.height === 0
 }
 
-function getAnchorRect(anchorRef) {
-  const anchor = anchorRef?.current
-  if (!anchor) return null
+function isValidRect(rect) {
+  if (!rect) return false
 
-  const candidates = [anchor, anchor.querySelector?.('svg')].filter(Boolean)
-  for (const candidate of candidates) {
-    const rect = candidate.getBoundingClientRect?.()
-    if (!rect || isOriginRect(rect)) continue
-    return rect
-  }
+  const values = [rect.top, rect.left, rect.right, rect.bottom, rect.width, rect.height]
+  if (values.some((value) => !Number.isFinite(value))) return false
+  if (rect.width <= 0 || rect.height <= 0) return false
+  if (isOriginRect(rect)) return false
 
-  return null
+  return true
 }
 
-export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, anchorRef }) {
+function toPlainRect(rect) {
+  return {
+    x: rect.x,
+    y: rect.y,
+    top: rect.top,
+    left: rect.left,
+    right: rect.right,
+    bottom: rect.bottom,
+    width: rect.width,
+    height: rect.height,
+  }
+}
+
+function getAnchorRect(anchorRef, fallbackRect = null, allowFallback = true) {
+  const rect = anchorRef?.current?.getBoundingClientRect?.()
+  if (isValidRect(rect)) return { rect: toPlainRect(rect), fromFallback: false }
+  if (allowFallback && isValidRect(fallbackRect)) {
+    return { rect: toPlainRect(fallbackRect), fromFallback: true }
+  }
+  return { rect: null, fromFallback: false }
+}
+
+export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, anchorRef, anchorRect = null }) {
   const ref = useRef(null)
   const detailPanelOpen = useAppStore((s) => s.detailPanelOpen)
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }))
   const [position, setPosition] = useState(null)
+  const hasMeasuredLiveRectRef = useRef(false)
 
   const actions = useMemo(
     () => [
@@ -49,10 +69,14 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
   const updatePosition = useCallback(() => {
     if (!ref.current) return
 
-    const rect = getAnchorRect(anchorRef)
+    const { rect, fromFallback } = getAnchorRect(anchorRef, anchorRect, !hasMeasuredLiveRectRef.current)
     if (!rect) {
-      setPosition((current) => current)
+      setPosition(null)
       return
+    }
+
+    if (!fromFallback) {
+      hasMeasuredLiveRectRef.current = true
     }
 
     const measuredMenuHeight = ref.current.offsetHeight || 170
@@ -88,7 +112,7 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
       }
       return { top, left, maxHeight }
     })
-  }, [anchorRef, detailPanelOpen, viewport.height, viewport.width])
+  }, [anchorRect, anchorRef, detailPanelOpen, position, viewport.height, viewport.width])
 
   useEffect(() => {
     function handleResize() {
@@ -111,8 +135,12 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
     let attempts = 0
 
     function applyFallbackPosition() {
-      const rect = getAnchorRect(anchorRef)
+      const { rect, fromFallback } = getAnchorRect(anchorRef, anchorRect, !hasMeasuredLiveRectRef.current)
       if (rect) {
++        if (!fromFallback) {
++          hasMeasuredLiveRectRef.current = true
++        }
+         const fallbackHeight = 170
         const fallbackHeight = 170
         const fallbackTop = clamp(
           rect.bottom + MENU_OFFSET,
@@ -139,7 +167,7 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId)
     }
-  }, [anchorRef, position, viewport.height, viewport.width])
+  }, [anchorRect, anchorRef, position, viewport.height, viewport.width])
 
   useLayoutEffect(() => {
     updatePosition()
@@ -203,7 +231,7 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
         top: position?.top ?? VIEWPORT_MARGIN,
         left: position?.left ?? VIEWPORT_MARGIN,
         maxHeight: position?.maxHeight ?? MAX_MENU_HEIGHT,
-        visibility: 'visible',
+        visibility: position ? 'visible' : 'hidden',
       }}
     >
       {actions.slice(0, 3).map(renderItem)}

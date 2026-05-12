@@ -193,12 +193,32 @@ export default function ContentArea() {
   )
 }
 
+function getMenuAnchorRect(button) {
+  const rect = button?.getBoundingClientRect?.()
+  if (!rect) return null
+  if (!Number.isFinite(rect.top) || !Number.isFinite(rect.left)) return null
+  if (rect.width <= 0 || rect.height <= 0) return null
+  if (rect.x === 0 && rect.y === 0 && rect.width === 0 && rect.height === 0) return null
+
+  return {
+    x: rect.x,
+    y: rect.y,
+    top: rect.top,
+    left: rect.left,
+    right: rect.right,
+    bottom: rect.bottom,
+    width: rect.width,
+    height: rect.height,
+  }
+}
+
 function BookmarkListItem({ bookmark, isSelected }) {
   const openDetail = useAppStore((s) => s.openDetail)
   const deleteMutation = useDeleteBookmark()
   const { addToast } = useToast()
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [anchorRect, setAnchorRect] = useState(null)
   const menuButtonRef = useRef(null)
 
   async function handleDelete() {
@@ -248,18 +268,31 @@ function BookmarkListItem({ bookmark, isSelected }) {
       )}
       <button
         ref={menuButtonRef}
-        onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v) }}
+        onClick={(e) => {
+          e.stopPropagation()
+          const nextOpen = !menuOpen
+          if (nextOpen) {
+            setAnchorRect(getMenuAnchorRect(e.currentTarget))
+          } else {
+            setAnchorRect(null)
+          }
+          setMenuOpen(nextOpen)
+        }}
         className="text-xs text-gray-400 hover:text-blue-600 px-2 py-1 rounded hover:bg-blue-50 transition-colors shrink-0 relative"
       >
         <MoreHorizontal size={16} />
         {menuOpen && (
           <CardMenu
             anchorRef={menuButtonRef}
+            anchorRect={anchorRect}
             onDetail={() => openDetail(bookmark.id)}
             onEdit={() => openDetail(bookmark.id)}
             onMove={() => openDetail(bookmark.id)}
             onDelete={() => setConfirmDelete(true)}
-            onClose={() => setMenuOpen(false)}
+            onClose={() => {
+              setMenuOpen(false)
+              setAnchorRect(null)
+            }}
           />
         )}
       </button>
