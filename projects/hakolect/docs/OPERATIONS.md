@@ -9,22 +9,32 @@ For production bookmark deletions or other destructive data changes:
 3. Take a DB backup before execution.
 4. Report the executed result immediately after the change.
 
-## Daily backup
+## Canonical backup / restore runbook
 
-Recommended cron:
+The production-standard backup implementation is based on:
 
-```cron
-15 3 * * * /opt/hakolect/app/scripts/backup_hakolect_db.sh /opt/hakolect/app/data/hakolect.db /opt/hakolect/backups >> /var/log/hakolect-db-backup.log 2>&1
-```
+- script: `/opt/hakolect/app/backup_hakolect_db.sh`
+- cron: `/etc/cron.d/hakolect-db-backup`
+- log: `/var/log/hakolect-db-backup.log`
 
-- retention: 14 days
-- backup path: `/opt/hakolect/backups`
-- latest symlink: `/opt/hakolect/backups/latest.tar.gz`
+The detailed runbook is `docs/BACKUP_RUNBOOK.md`.
+It defines:
+- backup destination
+- daily execution time
+- manual backup procedure
+- generated files and latest symlink checks
+- restore steps
+- operational cautions
+- responsibility scope
+- Vault storage path
 
-## Restore outline
+If `scripts/backup_db.py` exists locally, treat it as non-canonical helper code only. Do not use it as the production handoff path unless the cron and runbook are rewritten together.
 
-1. Stop application writes if possible.
-2. Extract the chosen archive into a temporary directory.
-3. Replace `/opt/hakolect/app/data/hakolect.db` with the extracted DB file.
-4. Restart the app with `docker compose up -d` from `/opt/hakolect/app`.
-5. Verify `GET /api/hakolect/health` and bookmark visibility.
+## UI release verification
+
+For UI interaction changes, use `docs/PRE_RELEASE_CHECKLIST.md` before owner-facing confirmation.
+It standardizes:
+- fixed record fields
+- click → open state → DOM mount → visible observation points
+- smoke test coverage for grid/list, detail panel states, mobile width, edge positioning, and production `/hakolect/`
+- owner handoff conditions

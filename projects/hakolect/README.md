@@ -41,6 +41,7 @@ DATABASE_URL=sqlite:///$(pwd)/data/hakolect.db python seed_demo.py
 ```
 
 This inserts Japanese-centered demo folders, tags, and bookmarks for local screenshots and interaction checks.
+Seeded bookmarks are tagged internally with `source=demo_seed` so later demo refreshes can distinguish them from user-added data.
 
 ## Dev Mode
 
@@ -68,7 +69,7 @@ python seed_demo.py --force
 ```
 
 Inserts 4 folders and 13 Japanese-centered bookmarks. Safe to run only once — skips if data already exists unless `--force` is used.
-To reset manually: delete `data/hakolect.db` and re-run.
+`--force` only refreshes the DB when the existing bookmarks are recognized as demo data. If non-demo bookmarks exist, the script refuses to wipe them.
 
 > **Local seeding note:** the repository root `.env` is tuned for Docker (`DATABASE_URL=sqlite:////app/data/hakolect.db`).
 > If you run `seed_demo.py` locally from `backend/`, either set `DATABASE_URL=sqlite:///$(pwd)/data/hakolect.db` inline for that command or create `backend/.env` with the local path shown in the Backend setup section.
@@ -111,6 +112,47 @@ npm run dev
 ## API Key
 
 `API_KEY` is set in `.env`. It is injected into the backend container as an env var. External clients (Chrome extension, OpenClaw integration) must pass it as `X-API-Key` header.
+
+## Operations Safety
+
+- Do not delete production or verification bookmarks silently.
+- Before destructive operations: share target list → take DB backup → execute → report result.
+- If ownership of a bookmark is unclear, move or label it for review instead of deleting it.
+- See `docs/OPERATIONS.md` for operation rules and `docs/PRE_RELEASE_CHECKLIST.md` for the UI pre-release verification template.
+
+## Backup
+
+Canonical production backup method:
+
+```bash
+cd /opt/hakolect/app
+RETENTION_DAYS=14 ./backup_hakolect_db.sh /opt/hakolect/app/data/hakolect.db /opt/hakolect/backups
+```
+
+Production cron:
+
+```cron
+15 3 * * * root RETENTION_DAYS=14 /opt/hakolect/app/backup_hakolect_db.sh /opt/hakolect/app/data/hakolect.db /opt/hakolect/backups >> /var/log/hakolect-db-backup.log 2>&1
+```
+
+Manual verification after a run:
+- confirm `Created backup:` appears in command output
+- confirm a new `hakolect.db.YYYYMMDD-HHMMSS.tar.gz` exists in `/opt/hakolect/backups`
+- confirm `/opt/hakolect/backups/latest.tar.gz` points to the newest archive
+- confirm `/var/log/hakolect-db-backup.log` has no recent error
+
+Recommended minimum policy:
+- daily local backup with 7–14 generations
+- extra backup before deploys, schema changes, or bulk cleanup
+- off-host copy as the next hardening step
+
+Detailed runbook:
+- repo: `docs/BACKUP_RUNBOOK.md`
+- vault: `~/TerraceK/vault/TerraceK_Vault/yui/projects/hakolect/BACKUP_RUNBOOK.md`
+
+Note:
+- `backup_hakolect_db.sh` is the canonical production path
+- `scripts/backup_db.py` is not the production standard unless cron and runbook are changed together
 
 ## Deployment (Production)
 
