@@ -6,6 +6,7 @@ import { useFolders } from '../hooks/useFolders'
 import useAppStore from '../store/useAppStore'
 import { useToast } from './Toast'
 import ConfirmDialog from './ConfirmDialog'
+import { getBookmarkTags } from '../utils/bookmarkFormat'
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
@@ -55,7 +56,7 @@ export default function DetailPanel() {
       title: bookmark.title || '',
       comment: bookmark.comment || '',
       folder_id: bookmark.folder_id ?? '',
-      tags: bookmark.tags?.map((t) => t.name) || [],
+      tags: getBookmarkTags(bookmark),
     })
     setTagInput('')
     setEditMode(detailPanelMode === 'edit' || detailPanelMode === 'move')
@@ -78,7 +79,7 @@ export default function DetailPanel() {
       title: bookmark.title || '',
       comment: bookmark.comment || '',
       folder_id: bookmark.folder_id ?? '',
-      tags: bookmark.tags?.map((t) => t.name) || [],
+      tags: getBookmarkTags(bookmark),
     })
     setTagInput('')
   }
@@ -87,16 +88,24 @@ export default function DetailPanel() {
 
   async function handleSave() {
     try {
+      const payload = detailPanelMode === 'move'
+        ? { folder_id: form.folder_id === '' ? null : Number(form.folder_id) }
+        : {
+            title: form.title || null,
+            comment: form.comment || null,
+            folder_id: form.folder_id === '' ? null : Number(form.folder_id),
+            tags: form.tags,
+          }
+
       await updateMutation.mutateAsync({
         id: selectedBookmarkId,
-        data: {
-          title: form.title || null,
-          comment: form.comment || null,
-          folder_id: form.folder_id === '' ? null : Number(form.folder_id),
-          tags: form.tags,
-        },
+        data: payload,
       })
       addToast(detailPanelMode === 'move' ? 'Item moved' : 'Saved', 'success')
+      if (detailPanelMode === 'move') {
+        closeDetail()
+        return
+      }
       setEditMode(false)
     } catch {
       addToast(detailPanelMode === 'move' ? 'Failed to move item' : 'Failed to save', 'error')
@@ -130,6 +139,34 @@ export default function DetailPanel() {
   const isMoveMode = detailPanelMode === 'move'
   const showEditChrome = editMode && !isMoveMode
   const panelTitle = isMoveMode ? 'Move to folder' : editMode ? 'Edit item' : 'Item details'
+
+  const folderField = (
+    <div
+      className={clsx(
+        'space-y-2',
+        isMoveMode && 'rounded-xl border border-blue-200 bg-blue-50/60 p-3'
+      )}
+      data-move-shortcut={isMoveMode ? 'true' : 'false'}
+    >
+      <label className="block text-xs text-gray-500">Folder</label>
+      {isMoveMode && (
+        <p className="text-xs text-blue-700">Choose the destination folder for this item.</p>
+      )}
+      <select
+        ref={folderSelectRef}
+        value={form.folder_id}
+        onChange={(e) => setForm((f) => ({ ...f, folder_id: e.target.value }))}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="">Unsorted</option>
+        {flatFolders.map((f) => (
+          <option key={f.id} value={f.id}>
+            {'  '.repeat(f.depth)}{f.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
 
   const content = (
     <div className="flex flex-col h-full" data-detail-panel-mode={detailPanelMode}>
@@ -178,7 +215,9 @@ export default function DetailPanel() {
               />
             )}
 
-            {editMode ? (
+            {isMoveMode ? (
+              folderField
+            ) : editMode ? (
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Title</label>
                 <input
@@ -212,36 +251,12 @@ export default function DetailPanel() {
             )}
 
             {editMode ? (
-              <div
-                className={clsx(
-                  'space-y-2',
-                  isMoveMode && 'rounded-xl border border-blue-200 bg-blue-50/60 p-3'
-                )}
-                data-move-shortcut={isMoveMode ? 'true' : 'false'}
-              >
-                <label className="block text-xs text-gray-500">Folder</label>
-                {isMoveMode && (
-                  <p className="text-xs text-blue-700">Choose the destination folder for this item.</p>
-                )}
-                <select
-                  ref={folderSelectRef}
-                  value={form.folder_id}
-                  onChange={(e) => setForm((f) => ({ ...f, folder_id: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Unsorted</option>
-                  {flatFolders.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {'  '.repeat(f.depth)}{f.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              !isMoveMode && folderField
             ) : (
               bookmark.folder_id && (
                 <div className="flex items-center gap-1 text-xs text-gray-500">
                   <ChevronRight size={12} />
-                  {flatFolders.find((f) => f.id === bookmark.folder_id)?.name || 'Folder'}
+                  {bookmark.folder_path || flatFolders.find((f) => f.id === bookmark.folder_id)?.name || 'Folder'}
                 </div>
               )
             )}
@@ -276,18 +291,28 @@ export default function DetailPanel() {
                 />
               </div>
             ) : (
-              !editMode && bookmark.tags && bookmark.tags.length > 0 && (
+              !editMode && getBookmarkTags(bookmark).length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {bookmark.tags.map((tag) => (
+                  {getBookmarkTags(bookmark).map((tag) => (
                     <span
-                      key={tag.id}
+                      key={tag}
                       className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full"
                     >
-                      {tag.name}
+                      {tag}
                     </span>
                   ))}
                 </div>
               )
+            )}
+
+            {isMoveMode && (
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-2">
+                <p className="text-xs font-medium text-gray-500">Moving</p>
+                <p className="text-sm font-medium text-gray-900 break-words">
+                  {bookmark.title || bookmark.url}
+                </p>
+                <p className="text-xs text-gray-500 break-all">{bookmark.url}</p>
+              </div>
             )}
 
             {showEditChrome ? (
@@ -331,7 +356,14 @@ export default function DetailPanel() {
             {updateMutation.isPending ? (isMoveMode ? 'Moving...' : 'Saving...') : (isMoveMode ? 'Move' : 'Save')}
           </button>
           <button
-            onClick={() => { resetForm(); setEditMode(false) }}
+            onClick={() => {
+              resetForm()
+              if (isMoveMode) {
+                closeDetail()
+                return
+              }
+              setEditMode(false)
+            }}
             className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Cancel

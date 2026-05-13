@@ -6,6 +6,7 @@ import ConfirmDialog from './ConfirmDialog'
 import { useDeleteBookmark } from '../hooks/useBookmarks'
 import useAppStore from '../store/useAppStore'
 import { useToast } from './Toast'
+import { getBookmarkTags } from '../utils/bookmarkFormat'
 
 function getDomain(url) {
   try {
@@ -36,6 +37,7 @@ function getMenuAnchorRect(button) {
 
 export default function BookmarkCard({ bookmark, isSelected }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const tagNames = getBookmarkTags(bookmark)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const menuButtonRef = useRef(null)
@@ -152,18 +154,18 @@ export default function BookmarkCard({ bookmark, isSelected }) {
           )}
 
           {/* Tags */}
-          {bookmark.tags && bookmark.tags.length > 0 && (
+          {tagNames.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
-              {bookmark.tags.slice(0, 3).map((tag) => (
+              {tagNames.slice(0, 3).map((tag) => (
                 <span
-                  key={tag.id}
+                  key={tag}
                   className="inline-block bg-blue-50 text-blue-700 text-xs px-1.5 py-0.5 rounded-full"
                 >
-                  {tag.name}
+                  {tag}
                 </span>
               ))}
-              {bookmark.tags.length > 3 && (
-                <span className="text-xs text-gray-400">+{bookmark.tags.length - 3}</span>
+              {tagNames.length > 3 && (
+                <span className="text-xs text-gray-400">+{tagNames.length - 3}</span>
               )}
             </div>
           )}

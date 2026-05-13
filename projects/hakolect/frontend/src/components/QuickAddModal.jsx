@@ -3,6 +3,7 @@ import { X, Plus, Loader2 } from 'lucide-react'
 import { useCreateBookmark, useFetchMeta } from '../hooks/useBookmarks'
 import { useToast } from './Toast'
 import useAppStore from '../store/useAppStore'
+import { getDuplicateBookmarkId } from '../utils/bookmarkFormat'
 
 function normalizeUrlInput(value) {
   const trimmed = value.trim()
@@ -77,7 +78,7 @@ export default function QuickAddModal({ onClose }) {
     } catch (err) {
       const status = err.response?.status
       if (status === 409) {
-        const existingId = err.response?.data?.detail?.existing_bookmark_id
+        const existingId = getDuplicateBookmarkId(err)
         setDuplicateId(existingId)
         setError('This URL is already saved.')
       } else {

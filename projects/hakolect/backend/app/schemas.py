@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from urllib.parse import urlparse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 def normalize_http_url(value: str) -> str:
@@ -76,7 +76,7 @@ class BookmarkBase(BaseModel):
     comment: Optional[str] = None
     folder_id: Optional[int] = None
     sort_order: int = 0
-    source: Optional[str] = None
+    source: str = "manual"
 
 
 class BookmarkCreate(BookmarkBase):
@@ -89,7 +89,8 @@ class BookmarkCreate(BookmarkBase):
 
 
 class BookmarkUpdate(BaseModel):
-    url: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+
     title: Optional[str] = None
     description: Optional[str] = None
     ogp_image_url: Optional[str] = None
@@ -100,17 +101,11 @@ class BookmarkUpdate(BaseModel):
     source: Optional[str] = None
     tags: Optional[List[str]] = None
 
-    @field_validator("url")
-    @classmethod
-    def validate_url(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return value
-        return normalize_http_url(value)
-
 
 class BookmarkOut(BookmarkBase):
     id: int
-    tags: List[TagOut] = []
+    folder_path: Optional[str] = None
+    tags: List[str] = []
     created_at: datetime
     updated_at: datetime
 
@@ -120,6 +115,7 @@ class BookmarkOut(BookmarkBase):
 
 class BookmarkListResponse(BaseModel):
     items: List[BookmarkOut]
+    bookmarks: List[BookmarkOut]
     total: int
     unsorted_count: int
 

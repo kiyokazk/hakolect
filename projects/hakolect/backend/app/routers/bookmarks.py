@@ -1,5 +1,6 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from .. import crud, schemas
 from ..database import get_db
@@ -23,21 +24,42 @@ def list_bookmarks(
     items, total, unsorted_count = crud.get_bookmarks(
         db, folder_id=folder_id, tag=tag, keyword=keyword, sort=sort, skip=skip, limit=limit
     )
-    return {"items": items, "total": total, "unsorted_count": unsorted_count}
+    return {
+        "items": items,
+        "bookmarks": items,
+        "total": total,
+        "unsorted_count": unsorted_count,
+    }
 
 
 @router.post("", response_model=schemas.BookmarkOut, status_code=201)
-def create_bookmark(
+async def create_bookmark(
     data: schemas.BookmarkCreate,
     db: Session = Depends(get_db),
     _: Optional[str] = Depends(optional_api_key),
 ):
-    bookmark, existing = crud.create_bookmark(db, data)
+    merged_data = data
+    needs_server_meta = not all(
+        [data.title, data.description, data.ogp_image_url, data.favicon_url]
+    )
+    if needs_server_meta:
+        meta = await fetch_meta(data.url)
+        merged_data = data.model_copy(
+            update={
+                "title": data.title or meta.get("title"),
+                "description": data.description or meta.get("description"),
+                "ogp_image_url": data.ogp_image_url or meta.get("ogp_image_url"),
+                "favicon_url": data.favicon_url or meta.get("favicon_url"),
+                "source": data.source or "manual",
+            }
+        )
+
+    bookmark, existing = crud.create_bookmark(db, merged_data)
     if existing:
-        raise HTTPException(
+        return JSONResponse(
             status_code=409,
-            detail={
-                "message": "URL already exists",
+            content={
+                "detail": "URL already exists",
                 "existing_bookmark_id": existing.id,
             },
         )

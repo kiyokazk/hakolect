@@ -28,7 +28,8 @@ client.interceptors.response.use(
     const status = error.response?.status
     const detail = error.response?.data?.detail
 
-    if (status === 409 && detail?.existing_bookmark_id) {
+    const duplicateBookmarkId = error.response?.data?.existing_bookmark_id || detail?.existing_bookmark_id
+    if (status === 409 && duplicateBookmarkId) {
       // Duplicate URL - pass through for caller to handle
       return Promise.reject(error)
     }

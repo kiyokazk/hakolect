@@ -1,7 +1,10 @@
+import logging
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func, or_
 from . import models, schemas
+
+logger = logging.getLogger(__name__)
 
 
 def _collect_descendant_folder_ids(folders: List[models.Folder], folder_id: int) -> List[int]:
@@ -120,6 +123,14 @@ def _sync_tags(db: Session, bookmark: models.Bookmark, tag_names: List[str]):
 def create_bookmark(db: Session, data: schemas.BookmarkCreate):
     existing = get_bookmark_by_url(db, data.url)
     if existing:
+        logger.info(
+            "Duplicate bookmark skipped",
+            extra={
+                "bookmark_url": data.url,
+                "existing_bookmark_id": existing.id,
+                "source": data.source,
+            },
+        )
         return None, existing  # caller handles 409
 
     bookmark = models.Bookmark(
@@ -131,7 +142,7 @@ def create_bookmark(db: Session, data: schemas.BookmarkCreate):
         comment=data.comment,
         folder_id=data.folder_id,
         sort_order=data.sort_order,
-        source=data.source,
+        source=data.source or "manual",
     )
     db.add(bookmark)
     db.flush()

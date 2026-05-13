@@ -9,6 +9,7 @@ import { useBookmarks, useDeleteBookmark } from '../hooks/useBookmarks'
 import { useFolders } from '../hooks/useFolders'
 import useAppStore from '../store/useAppStore'
 import { useToast } from './Toast'
+import { getBookmarkList, getBookmarkTags } from '../utils/bookmarkFormat'
 
 function flattenFolders(folders, depth = 0) {
   const result = []
@@ -50,7 +51,7 @@ export default function ContentArea() {
   if (activeTag) queryParams.tag = activeTag
 
   const { data, isLoading, isError } = useBookmarks(queryParams)
-  const bookmarks = data?.items || []
+  const bookmarks = getBookmarkList(data)
   const total = data?.total || 0
 
   const activeFolderPath =
@@ -257,11 +258,11 @@ function BookmarkListItem({ bookmark, isSelected }) {
         </p>
         <p className="text-xs text-gray-400 truncate">{getDomain(bookmark.url)}</p>
       </div>
-      {bookmark.tags && bookmark.tags.length > 0 && (
+      {getBookmarkTags(bookmark).length > 0 && (
         <div className="hidden sm:flex gap-1">
-          {bookmark.tags.slice(0, 2).map((t) => (
-            <span key={t.id} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full">
-              {t.name}
+          {getBookmarkTags(bookmark).slice(0, 2).map((tag) => (
+            <span key={tag} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full">
+              {tag}
             </span>
           ))}
         </div>

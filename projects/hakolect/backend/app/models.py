@@ -29,7 +29,7 @@ class Bookmark(Base):
     comment = Column(Text, nullable=True)
     folder_id = Column(Integer, ForeignKey("folders.id", ondelete="SET NULL"), nullable=True)
     sort_order = Column(Integer, default=0, nullable=False)
-    source = Column(String(50), nullable=True)
+    source = Column(String(50), nullable=False, default="manual")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -38,7 +38,21 @@ class Bookmark(Base):
 
     @property
     def tags(self):
-        return [bt.tag for bt in self.bookmark_tags]
+        return [bt.tag.name for bt in self.bookmark_tags if bt.tag]
+
+    @property
+    def folder_path(self):
+        if not self.folder:
+            return None
+
+        path = []
+        current = self.folder
+        seen = set()
+        while current and current.id not in seen:
+            seen.add(current.id)
+            path.append(current.name)
+            current = current.parent
+        return " / ".join(reversed(path)) if path else None
 
 
 class Tag(Base):
