@@ -41,7 +41,11 @@ def update_folder(
     db: Session = Depends(get_db),
     _: Optional[str] = Depends(optional_api_key),
 ):
-    folder = crud.update_folder(db, folder_id, data)
+    try:
+        folder = crud.update_folder(db, folder_id, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     if not folder:
         raise HTTPException(status_code=404, detail="Folder not found")
     return folder

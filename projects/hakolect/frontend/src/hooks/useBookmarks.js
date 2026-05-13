@@ -15,10 +15,16 @@ export const BOOKMARKS_KEY = 'bookmarks'
 export function useBookmarks(params = {}) {
   const selectedFolderId = useAppStore((s) => s.selectedFolderId)
   const searchKeyword = useAppStore((s) => s.searchKeyword)
+  const activeTag = useAppStore((s) => s.activeTag)
 
   const queryParams = {
     ...(selectedFolderId !== null ? { folder_id: selectedFolderId } : {}),
     ...(searchKeyword ? { keyword: searchKeyword } : {}),
+    ...(activeTag ? { tag: activeTag } : {}),
+    // Use manual sort_order when viewing a specific folder or Unsorted to persist drag-reorder
+    ...((typeof selectedFolderId === 'number' || selectedFolderId === 'unsorted')
+      ? { sort: 'sort_order' }
+      : {}),
     ...params,
   }
 

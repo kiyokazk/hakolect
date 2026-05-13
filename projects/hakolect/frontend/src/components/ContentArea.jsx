@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
-import { LayoutGrid, List, ChevronRight, Inbox, MoreHorizontal } from 'lucide-react'
+import { LayoutGrid, List, ChevronRight, Inbox, MoreHorizontal, GripVertical } from 'lucide-react'
 import clsx from 'clsx'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import BookmarkCard from './BookmarkCard'
 import TagFilterBar from './TagFilterBar'
 import CardMenu from './CardMenu'
@@ -9,57 +11,31 @@ import { useBookmarks, useDeleteBookmark } from '../hooks/useBookmarks'
 import { useFolders } from '../hooks/useFolders'
 import useAppStore from '../store/useAppStore'
 import { useToast } from './Toast'
-import { getBookmarkList, getBookmarkTags } from '../utils/bookmarkFormat'
-
-function flattenFolders(folders, depth = 0) {
-  const result = []
-  for (const f of folders) {
-    result.push(f)
-    if (f.children && f.children.length > 0) {
-      result.push(...flattenFolders(f.children, depth + 1))
-    }
-  }
-  return result
-}
-
-function getFolderPath(folders, folderId) {
-  const flat = flattenFolders(folders)
-  const folder = flat.find((f) => f.id === folderId)
-  if (!folder) return []
-  const path = [folder]
-  let current = folder
-  while (current.parent_id) {
-    const parent = flat.find((f) => f.id === current.parent_id)
-    if (!parent) break
-    path.unshift(parent)
-    current = parent
-  }
-  return path
-}
+import { getBookmarkTags } from '../utils/bookmarkFormat'
+import { getFolderPath } from '../utils/folderTree'
+import { BookmarkSortableContext, useBookmarkDnd } from './dnd/BookmarkDndProvider'
 
 export default function ContentArea() {
   const selectedFolderId = useAppStore((s) => s.selectedFolderId)
   const selectedBookmarkId = useAppStore((s) => s.selectedBookmarkId)
   const searchKeyword = useAppStore((s) => s.searchKeyword)
+  const activeTag = useAppStore((s) => s.activeTag)
+  const setActiveTag = useAppStore((s) => s.setActiveTag)
   const viewMode = useAppStore((s) => s.viewMode)
   const toggleViewMode = useAppStore((s) => s.toggleViewMode)
-  const [activeTag, setActiveTag] = useState(null)
 
   const { data: foldersData = [] } = useFolders()
-
-  const queryParams = {}
-  if (activeTag) queryParams.tag = activeTag
-
-  const { data, isLoading, isError } = useBookmarks(queryParams)
-  const bookmarks = getBookmarkList(data)
+  const { data, isLoading, isError } = useBookmarks({})
+  const dnd = useBookmarkDnd()
+  const bookmarks = dnd?.bookmarks || data?.bookmarks || data?.items || []
   const total = data?.total || 0
+  const reorderEnabled = dnd?.canReorder && bookmarks.length > 1
 
   const activeFolderPath =
     selectedFolderId !== null && selectedFolderId !== 'unsorted'
       ? getFolderPath(foldersData, selectedFolderId)
       : []
 
-  // Breadcrumb
   let breadcrumb = []
   if (searchKeyword) {
     breadcrumb = [{ label: `Search results for "${searchKeyword}"`, id: 'search' }]
@@ -90,13 +66,12 @@ export default function ContentArea() {
     const folderName = activeFolderPath[activeFolderPath.length - 1]?.name || 'This folder'
     emptyState = {
       title: `${folderName} is empty`,
-      description: 'Drag bookmarks here or add new ones.',
+      description: 'Use Move to... or drag-reorder items here after saving.',
     }
   }
 
   return (
     <main className="flex-1 min-w-0 p-4 lg:p-6">
-      {/* Breadcrumb */}
       <div className="flex items-center gap-1 text-sm mb-3">
         {breadcrumb.map((crumb, i) => (
           <span key={crumb.id ?? 'root'} className="flex items-center gap-1">
@@ -113,11 +88,14 @@ export default function ContentArea() {
         </span>
       </div>
 
-      {/* Tag filter bar */}
       <TagFilterBar activeTag={activeTag} onTagClick={setActiveTag} />
 
-      {/* View toggle */}
-      <div className="flex justify-end mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <div className="text-xs text-gray-500">
+          {reorderEnabled
+            ? 'Drag cards to reorder within the current view.'
+            : 'Reorder is available inside a specific folder or Unsorted after clearing tag/search filters.'}
+        </div>
         <div className="flex gap-0.5 bg-gray-100 p-0.5 rounded-lg">
           <button
             onClick={() => viewMode !== 'grid' && toggleViewMode()}
@@ -140,9 +118,8 @@ export default function ContentArea() {
         </div>
       </div>
 
-      {/* States */}
       {isLoading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="bg-white rounded-xl border border-gray-200 h-36 animate-pulse" />
           ))}
@@ -168,27 +145,31 @@ export default function ContentArea() {
       )}
 
       {!isLoading && !isError && bookmarks.length > 0 && (
-        viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {bookmarks.map((bm) => (
-              <BookmarkCard
-                key={bm.id}
-                bookmark={bm}
-                isSelected={bm.id === selectedBookmarkId}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {bookmarks.map((bm) => (
-              <BookmarkListItem
-                key={bm.id}
-                bookmark={bm}
-                isSelected={bm.id === selectedBookmarkId}
-              />
-            ))}
-          </div>
-        )
+        <BookmarkSortableContext>
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {bookmarks.map((bm) => (
+                <SortableBookmarkCard
+                  key={bm.id}
+                  bookmark={bm}
+                  isSelected={bm.id === selectedBookmarkId}
+                  disabled={!dnd}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {bookmarks.map((bm) => (
+                <SortableBookmarkListItem
+                  key={bm.id}
+                  bookmark={bm}
+                  isSelected={bm.id === selectedBookmarkId}
+                  disabled={!dnd}
+                />
+              ))}
+            </div>
+          )}
+        </BookmarkSortableContext>
       )}
     </main>
   )
@@ -213,7 +194,82 @@ function getMenuAnchorRect(button) {
   }
 }
 
-function BookmarkListItem({ bookmark, isSelected }) {
+function getDropIndicatorPosition(dnd, sortableId) {
+  if (!dnd?.activeBookmark || !dnd?.canReorder || dnd.overTargetId !== sortableId) return null
+
+  const activeIndex = dnd.bookmarks.findIndex((item) => item.id === dnd.activeBookmark.id)
+  const overId = Number(String(sortableId).replace('bookmark:', ''))
+  const overIndex = dnd.bookmarks.findIndex((item) => item.id === overId)
+
+  if (activeIndex < 0 || overIndex < 0 || activeIndex === overIndex) return null
+  return activeIndex < overIndex ? 'after' : 'before'
+}
+
+function SortableBookmarkCard({ bookmark, isSelected, disabled }) {
+  const dnd = useBookmarkDnd()
+  const sortableId = dnd ? dnd.bookmarkTargetId(bookmark.id) : bookmark.id
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: sortableId,
+    disabled,
+  })
+  const dropIndicatorPosition = getDropIndicatorPosition(dnd, sortableId)
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={clsx('relative', isDragging && 'z-20 opacity-70')}
+    >
+      {dropIndicatorPosition === 'before' && (
+        <div className="absolute inset-x-2 -top-2 z-10 h-1 rounded-full bg-blue-500 shadow-sm" />
+      )}
+      <BookmarkCard bookmark={bookmark} isSelected={isSelected} dragAttributes={attributes} dragListeners={listeners} />
+      {dropIndicatorPosition === 'after' && (
+        <div className="absolute inset-x-2 -bottom-2 z-10 h-1 rounded-full bg-blue-500 shadow-sm" />
+      )}
+    </div>
+  )
+}
+
+function SortableBookmarkListItem({ bookmark, isSelected, disabled }) {
+  const dnd = useBookmarkDnd()
+  const sortableId = dnd ? dnd.bookmarkTargetId(bookmark.id) : bookmark.id
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: sortableId,
+    disabled,
+  })
+  const dropIndicatorPosition = getDropIndicatorPosition(dnd, sortableId)
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className={clsx('relative', isDragging && 'z-20 opacity-70')}>
+      {dropIndicatorPosition === 'before' && (
+        <div className="absolute inset-x-2 -top-1 z-10 h-0.5 rounded-full bg-blue-500" />
+      )}
+      <BookmarkListItem
+        bookmark={bookmark}
+        isSelected={isSelected}
+        dragAttributes={attributes}
+        dragListeners={listeners}
+        dragDisabled={disabled}
+      />
+      {dropIndicatorPosition === 'after' && (
+        <div className="absolute inset-x-2 -bottom-1 z-10 h-0.5 rounded-full bg-blue-500" />
+      )}
+    </div>
+  )
+}
+
+function BookmarkListItem({ bookmark, isSelected, dragAttributes, dragListeners, dragDisabled }) {
   const openDetail = useAppStore((s) => s.openDetail)
   const deleteMutation = useDeleteBookmark()
   const { addToast } = useToast()
@@ -244,6 +300,19 @@ function BookmarkListItem({ bookmark, isSelected }) {
         isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'
       )}
     >
+      <button
+        type="button"
+        onClick={(e) => e.stopPropagation()}
+        className={clsx(
+          'shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700',
+          dragDisabled && 'opacity-40 cursor-not-allowed'
+        )}
+        title={dragDisabled ? 'Clear tag/search filters to reorder' : 'Drag to reorder'}
+        {...dragAttributes}
+        {...dragListeners}
+      >
+        <GripVertical size={16} />
+      </button>
       {bookmark.favicon_url && (
         <img
           src={bookmark.favicon_url}

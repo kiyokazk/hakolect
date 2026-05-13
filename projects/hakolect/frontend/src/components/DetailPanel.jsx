@@ -7,6 +7,7 @@ import useAppStore from '../store/useAppStore'
 import { useToast } from './Toast'
 import ConfirmDialog from './ConfirmDialog'
 import { getBookmarkTags } from '../utils/bookmarkFormat'
+import { flattenFolders } from '../utils/folderTree'
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
@@ -16,17 +17,6 @@ function useIsDesktop() {
     return () => window.removeEventListener('resize', handler)
   }, [])
   return isDesktop
-}
-
-function flattenFolders(folders, depth = 0) {
-  const result = []
-  for (const f of folders) {
-    result.push({ ...f, depth })
-    if (f.children && f.children.length > 0) {
-      result.push(...flattenFolders(f.children, depth + 1))
-    }
-  }
-  return result
 }
 
 export default function DetailPanel() {

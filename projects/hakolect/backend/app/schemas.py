@@ -56,6 +56,7 @@ class FolderUpdate(BaseModel):
 
 class FolderOut(FolderBase):
     id: int
+    bookmark_count: int = 0
     created_at: datetime
     children: List["FolderOut"] = []
 

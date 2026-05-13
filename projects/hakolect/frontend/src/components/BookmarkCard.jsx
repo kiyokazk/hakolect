@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { MoreHorizontal, ExternalLink } from 'lucide-react'
+import { MoreHorizontal, ExternalLink, GripVertical } from 'lucide-react'
 import clsx from 'clsx'
 import CardMenu from './CardMenu'
 import ConfirmDialog from './ConfirmDialog'
@@ -35,7 +35,7 @@ function getMenuAnchorRect(button) {
   }
 }
 
-export default function BookmarkCard({ bookmark, isSelected }) {
+export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dragListeners }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const tagNames = getBookmarkTags(bookmark)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -100,6 +100,17 @@ export default function BookmarkCard({ bookmark, isSelected }) {
               )}
             </div>
           )}
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute left-1.5 top-1.5 p-1 rounded-md bg-white/90 text-gray-500 hover:text-gray-800 hover:bg-white transition-all shadow-sm opacity-0 group-hover:opacity-100 max-md:opacity-100"
+            title="Drag to move or reorder"
+            {...dragAttributes}
+            {...dragListeners}
+          >
+            <GripVertical size={14} />
+          </button>
+
           {/* Menu button */}
           <button
             ref={menuButtonRef}

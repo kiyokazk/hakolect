@@ -1,21 +1,28 @@
 import { useState } from 'react'
 import { Bookmark, InboxIcon, Plus, X } from 'lucide-react'
 import clsx from 'clsx'
+import { useDroppable } from '@dnd-kit/core'
 import FolderTree from './FolderTree'
 import { useFolders, useCreateFolder } from '../hooks/useFolders'
 import { useBookmarksStats } from '../hooks/useBookmarks'
 import useAppStore from '../store/useAppStore'
 import { useToast } from './Toast'
+import { useBookmarkDnd } from './dnd/BookmarkDndProvider'
 
-function NavItem({ icon, label, count, active, onClick }) {
+function NavItem({ icon, label, count, active, onClick, dropId }) {
+  const dnd = useBookmarkDnd()
+  const { isOver, setNodeRef } = useDroppable({ id: dropId })
+  const dropActive = Boolean(dnd?.activeBookmark) && isOver
   return (
     <button
+      ref={setNodeRef}
       onClick={onClick}
       className={clsx(
         'flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-colors',
         active
           ? 'bg-blue-50 text-blue-700 font-medium'
-          : 'text-gray-700 hover:bg-gray-100'
+          : 'text-gray-700 hover:bg-gray-100',
+        dropActive && 'ring-2 ring-blue-400 bg-blue-50'
       )}
     >
       {icon}
@@ -62,6 +69,7 @@ function SidebarContent() {
           label="All hakolect"
           count={totalCount}
           active={selectedFolderId === null}
+          dropId="noop:all"
           onClick={() => { setSelectedFolder(null); closeSidebar() }}
         />
         <NavItem
@@ -69,6 +77,7 @@ function SidebarContent() {
           label="Unsorted"
           count={unsortedCount}
           active={selectedFolderId === 'unsorted'}
+          dropId="folder:unsorted"
           onClick={() => { setSelectedFolder('unsorted'); closeSidebar() }}
         />
       </div>

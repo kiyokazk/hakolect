@@ -112,7 +112,7 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
       }
       return { top, left, maxHeight }
     })
-  }, [anchorRect, anchorRef, detailPanelOpen, position, viewport.height, viewport.width])
+  }, [anchorRect, anchorRef, detailPanelOpen, viewport.height, viewport.width])
 
   useEffect(() => {
     function handleResize() {
@@ -137,10 +137,9 @@ export default function CardMenu({ onDetail, onEdit, onMove, onDelete, onClose, 
     function applyFallbackPosition() {
       const { rect, fromFallback } = getAnchorRect(anchorRef, anchorRect, !hasMeasuredLiveRectRef.current)
       if (rect) {
-+        if (!fromFallback) {
-+          hasMeasuredLiveRectRef.current = true
-+        }
-         const fallbackHeight = 170
+        if (!fromFallback) {
+          hasMeasuredLiveRectRef.current = true
+        }
         const fallbackHeight = 170
         const fallbackTop = clamp(
           rect.bottom + MENU_OFFSET,

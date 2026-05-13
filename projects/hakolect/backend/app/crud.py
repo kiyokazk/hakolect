@@ -7,6 +7,21 @@ from . import models, schemas
 logger = logging.getLogger(__name__)
 
 
+def _next_bookmark_sort_order(
+    db: Session,
+    folder_id: Optional[int],
+    exclude_bookmark_id: Optional[int] = None,
+) -> int:
+    query = db.query(func.max(models.Bookmark.sort_order)).filter(
+        models.Bookmark.folder_id.is_(None) if folder_id is None else models.Bookmark.folder_id == folder_id
+    )
+    if exclude_bookmark_id is not None:
+        query = query.filter(models.Bookmark.id != exclude_bookmark_id)
+
+    max_sort_order = query.scalar()
+    return 0 if max_sort_order is None else max_sort_order + 1
+
+
 def _collect_descendant_folder_ids(folders: List[models.Folder], folder_id: int) -> List[int]:
     child_map: Dict[Optional[int], List[models.Folder]] = {}
     for folder in folders:
@@ -161,6 +176,16 @@ def update_bookmark(db: Session, bookmark_id: int, data: schemas.BookmarkUpdate)
     update_data = data.model_dump(exclude_unset=True)
     tags = update_data.pop("tags", None)
 
+    next_folder_id = update_data.get("folder_id", bookmark.folder_id)
+    folder_changed = "folder_id" in update_data and next_folder_id != bookmark.folder_id
+    sort_order_explicitly_set = "sort_order" in update_data
+    if folder_changed and not sort_order_explicitly_set:
+        update_data["sort_order"] = _next_bookmark_sort_order(
+            db,
+            next_folder_id,
+            exclude_bookmark_id=bookmark.id,
+        )
+
     for key, value in update_data.items():
         setattr(bookmark, key, value)
 
@@ -191,16 +216,21 @@ def reorder_bookmarks(db: Session, items: List[schemas.ReorderItem]):
 
 # ── Folders ───────────────────────────────────────────────────────────────────
 
-def _build_folder_tree(folders: List[models.Folder], parent_id: Optional[int] = None):
+def _build_folder_tree(
+    folders: List[models.Folder],
+    bookmark_counts: Dict[int, int],
+    parent_id: Optional[int] = None,
+):
     result = []
     for f in folders:
         if f.parent_id == parent_id:
-            children = _build_folder_tree(folders, f.id)
+            children = _build_folder_tree(folders, bookmark_counts, f.id)
             folder_dict = {
                 "id": f.id,
                 "name": f.name,
                 "parent_id": f.parent_id,
                 "sort_order": f.sort_order,
+                "bookmark_count": bookmark_counts.get(f.id, 0),
                 "created_at": f.created_at,
                 "children": children,
             }
@@ -210,7 +240,14 @@ def _build_folder_tree(folders: List[models.Folder], parent_id: Optional[int] = 
 
 def get_all_folders_tree(db: Session):
     folders = db.query(models.Folder).all()
-    return _build_folder_tree(folders)
+    bookmark_rows = (
+        db.query(models.Bookmark.folder_id, func.count(models.Bookmark.id))
+        .filter(models.Bookmark.folder_id.isnot(None))
+        .group_by(models.Bookmark.folder_id)
+        .all()
+    )
+    bookmark_counts = {folder_id: count for folder_id, count in bookmark_rows if folder_id is not None}
+    return _build_folder_tree(folders, bookmark_counts)
 
 
 def get_folder_by_id(db: Session, folder_id: int):
@@ -233,7 +270,19 @@ def update_folder(db: Session, folder_id: int, data: schemas.FolderUpdate):
     folder = get_folder_by_id(db, folder_id)
     if not folder:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+
+    update_data = data.model_dump(exclude_unset=True)
+    next_parent_id = update_data.get("parent_id", folder.parent_id)
+    if next_parent_id == folder_id:
+        raise ValueError("Folder cannot be moved into itself")
+
+    if next_parent_id is not None:
+        folders = db.query(models.Folder).all()
+        subtree_ids = set(_collect_descendant_folder_ids(folders, folder_id))
+        if next_parent_id in subtree_ids:
+            raise ValueError("Folder cannot be moved into its descendant")
+
+    for key, value in update_data.items():
         setattr(folder, key, value)
     db.commit()
     db.refresh(folder)

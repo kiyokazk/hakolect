@@ -4,6 +4,7 @@ const useAppStore = create((set) => ({
   // Sidebar/navigation state
   selectedFolderId: null, // null = All, 'unsorted' = Unsorted, number = folder id
   searchKeyword: '',
+  activeTag: null,
   sidebarOpen: false, // mobile drawer
 
   // Detail panel
@@ -16,10 +17,13 @@ const useAppStore = create((set) => ({
 
   // Actions
   setSelectedFolder: (folderId) =>
-    set({ selectedFolderId: folderId, searchKeyword: '' }),
+    set({ selectedFolderId: folderId, searchKeyword: '', activeTag: null }),
 
   setSearchKeyword: (keyword) =>
     set({ searchKeyword: keyword }),
+
+  setActiveTag: (tag) =>
+    set({ activeTag: tag }),
 
   openDetail: (bookmarkId, mode = 'detail') =>
     set({ selectedBookmarkId: bookmarkId, detailPanelOpen: true, detailPanelMode: mode }),
