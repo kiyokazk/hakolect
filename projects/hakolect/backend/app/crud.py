@@ -148,6 +148,12 @@ def create_bookmark(db: Session, data: schemas.BookmarkCreate):
         )
         return None, existing  # caller handles 409
 
+    sort_order = (
+        data.sort_order
+        if data.sort_order is not None
+        else _next_bookmark_sort_order(db, data.folder_id)
+    )
+
     bookmark = models.Bookmark(
         url=data.url,
         title=data.title,
@@ -156,7 +162,7 @@ def create_bookmark(db: Session, data: schemas.BookmarkCreate):
         favicon_url=data.favicon_url,
         comment=data.comment,
         folder_id=data.folder_id,
-        sort_order=data.sort_order,
+        sort_order=sort_order,
         source=data.source or "manual",
     )
     db.add(bookmark)

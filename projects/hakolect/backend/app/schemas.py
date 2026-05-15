@@ -81,6 +81,7 @@ class BookmarkBase(BaseModel):
 
 
 class BookmarkCreate(BookmarkBase):
+    sort_order: Optional[int] = None
     tags: List[str] = []
 
     @field_validator("url")

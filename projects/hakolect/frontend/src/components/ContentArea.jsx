@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LayoutGrid, List, ChevronRight, Inbox, MoreHorizontal, GripVertical } from 'lucide-react'
 import clsx from 'clsx'
 import { useSortable } from '@dnd-kit/sortable'
@@ -30,6 +30,17 @@ export default function ContentArea() {
   const bookmarks = dnd?.bookmarks || data?.bookmarks || data?.items || []
   const total = data?.total || 0
   const reorderEnabled = dnd?.canReorder && bookmarks.length > 1
+
+  useEffect(() => {
+    if (!selectedBookmarkId || bookmarks.length === 0) return
+
+    const frame = window.requestAnimationFrame(() => {
+      const selectedCard = document.querySelector(`[data-bookmark-id="${selectedBookmarkId}"]`)
+      selectedCard?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [bookmarks, selectedBookmarkId, viewMode])
 
   const activeFolderPath =
     selectedFolderId !== null && selectedFolderId !== 'unsorted'
@@ -223,6 +234,7 @@ function SortableBookmarkCard({ bookmark, isSelected, disabled }) {
     <div
       ref={setNodeRef}
       style={style}
+      data-bookmark-id={bookmark.id}
       className={clsx('relative', isDragging && 'z-20 opacity-70')}
     >
       {dropIndicatorPosition === 'before' && (
@@ -251,7 +263,12 @@ function SortableBookmarkListItem({ bookmark, isSelected, disabled }) {
   }
 
   return (
-    <div ref={setNodeRef} style={style} className={clsx('relative', isDragging && 'z-20 opacity-70')}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      data-bookmark-id={bookmark.id}
+      className={clsx('relative', isDragging && 'z-20 opacity-70')}
+    >
       {dropIndicatorPosition === 'before' && (
         <div className="absolute inset-x-2 -top-1 z-10 h-0.5 rounded-full bg-blue-500" />
       )}
