@@ -77,7 +77,7 @@ class BookmarkBase(BaseModel):
     comment: Optional[str] = None
     folder_id: Optional[int] = None
     sort_order: int = 0
-    source: str = "manual"
+    source: Optional[str] = "manual"
 
 
 class BookmarkCreate(BookmarkBase):
