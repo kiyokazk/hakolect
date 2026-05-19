@@ -7,6 +7,7 @@ import { useDeleteBookmark } from '../hooks/useBookmarks'
 import useAppStore from '../store/useAppStore'
 import { useToast } from './Toast'
 import { getBookmarkTags } from '../utils/bookmarkFormat'
+import { useBookmarkDnd } from './dnd/BookmarkDndProvider'
 
 function getDomain(url) {
   try {
@@ -44,6 +45,11 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
   const openDetail = useAppStore((s) => s.openDetail)
   const deleteMutation = useDeleteBookmark()
   const { addToast } = useToast()
+  const dnd = useBookmarkDnd()
+
+  const dragTitle = dnd?.canReorder
+    ? 'Drag to move or reorder'
+    : 'Drag to move. Reorder is available after clearing search or tag filters.'
 
   function handleCardClick() {
     window.open(bookmark.url, '_blank', 'noopener,noreferrer')
@@ -75,26 +81,25 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
       <div
         onClick={handleCardClick}
         className={clsx(
-          'relative group bg-white rounded-xl border cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 overflow-hidden',
+          'relative group overflow-hidden rounded-xl border bg-white cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md',
           isSelected ? 'border-blue-500 shadow-md ring-1 ring-blue-500' : 'border-gray-200'
         )}
       >
-        {/* OGP image area */}
-        <div className="relative h-14 bg-gray-100 overflow-hidden">
+        <div className="relative h-14 overflow-hidden bg-gray-100">
           {bookmark.ogp_image_url ? (
             <img
               src={bookmark.ogp_image_url}
               alt=""
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
               onError={(e) => { e.target.style.display = 'none' }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
               {bookmark.favicon_url && (
                 <img
                   src={bookmark.favicon_url}
                   alt=""
-                  className="w-8 h-8 object-contain opacity-30"
+                  className="h-8 w-8 object-contain opacity-30"
                   onError={(e) => { e.target.style.display = 'none' }}
                 />
               )}
@@ -103,20 +108,19 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            className="absolute left-1.5 top-1.5 p-1 rounded-md bg-white/90 text-gray-500 hover:text-gray-800 hover:bg-white transition-all shadow-sm opacity-0 group-hover:opacity-100 max-md:opacity-100"
-            title="Drag to move or reorder"
+            className="absolute left-1.5 top-1.5 rounded-md bg-white/90 p-1 text-gray-500 shadow-sm transition-all hover:bg-white hover:text-gray-800 opacity-70 hover:opacity-100"
+            title={dragTitle}
             {...dragAttributes}
             {...dragListeners}
           >
             <GripVertical size={14} />
           </button>
 
-          {/* Menu button */}
           <button
             ref={menuButtonRef}
             onClick={handleMenuClick}
             className={clsx(
-              'absolute right-1.5 top-1.5 p-1 rounded-md bg-white/90 text-gray-600 hover:text-gray-900 hover:bg-white transition-all shadow-sm',
+              'absolute right-1.5 top-1.5 rounded-md bg-white/90 p-1 text-gray-600 shadow-sm transition-all hover:bg-white hover:text-gray-900',
               menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 md:opacity-0 max-md:opacity-100'
             )}
           >
@@ -138,39 +142,34 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
           )}
         </div>
 
-        {/* Content */}
         <div className="p-3">
-          {/* Favicon + title + external icon */}
-          <div className="flex items-start gap-1.5 mb-1">
+          <div className="mb-1 flex items-start gap-1.5">
             {bookmark.favicon_url && (
               <img
                 src={bookmark.favicon_url}
                 alt=""
-                className="w-4 h-4 mt-0.5 shrink-0 object-contain"
+                className="mt-0.5 h-4 w-4 shrink-0 object-contain"
                 onError={(e) => { e.target.style.display = 'none' }}
               />
             )}
-            <span className="text-sm font-medium text-gray-900 leading-snug line-clamp-1 flex-1">
+            <span className="flex-1 line-clamp-1 text-sm font-medium leading-snug text-gray-900">
               {bookmark.title || getDomain(bookmark.url)}
             </span>
-            <ExternalLink size={12} className="text-gray-400 shrink-0 mt-0.5" />
+            <ExternalLink size={12} className="mt-0.5 shrink-0 text-gray-400" />
           </div>
 
-          {/* Domain */}
-          <p className="text-xs text-gray-400 mb-1.5 truncate">{getDomain(bookmark.url)}</p>
+          <p className="mb-1.5 truncate text-xs text-gray-400">{getDomain(bookmark.url)}</p>
 
-          {/* Comment */}
           {bookmark.comment && (
-            <p className="text-xs text-gray-600 line-clamp-2 mb-1.5">{bookmark.comment}</p>
+            <p className="mb-1.5 line-clamp-2 text-xs text-gray-600">{bookmark.comment}</p>
           )}
 
-          {/* Tags */}
           {tagNames.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
+            <div className="mt-1 flex flex-wrap gap-1">
               {tagNames.slice(0, 3).map((tag) => (
                 <span
                   key={tag}
-                  className="inline-block bg-blue-50 text-blue-700 text-xs px-1.5 py-0.5 rounded-full"
+                  className="inline-block rounded-full bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700"
                 >
                   {tag}
                 </span>

@@ -58,3 +58,22 @@ export function getSiblingFolders(folders = [], parentId = null) {
     .filter((folder) => (folder.parent_id ?? null) === (parentId ?? null))
     .sort((a, b) => a.sort_order - b.sort_order)
 }
+
+export function getNextFolderName(siblings = [], baseName = 'New folder') {
+  const names = new Set(
+    siblings
+      .map((folder) => folder?.name?.trim())
+      .filter(Boolean)
+  )
+
+  if (!names.has(baseName)) {
+    return baseName
+  }
+
+  let index = 1
+  while (names.has(`${baseName} (${index})`)) {
+    index += 1
+  }
+
+  return `${baseName} (${index})`
+}

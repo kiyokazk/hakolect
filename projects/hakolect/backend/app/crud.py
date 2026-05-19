@@ -1,10 +1,13 @@
 import logging
+import re
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func, or_
 from . import models, schemas
 
 logger = logging.getLogger(__name__)
+
+FOLDER_SUFFIX_RE = re.compile(r"^(?P<base>.+?) \((?P<index>\d+)\)$")
 
 
 def _next_bookmark_sort_order(
@@ -35,6 +38,58 @@ def _collect_descendant_folder_ids(folders: List[models.Folder], folder_id: int)
         for child in child_map.get(current_id, []):
             stack.append(child.id)
     return ids
+
+
+def _next_folder_sort_order(
+    db: Session,
+    parent_id: Optional[int],
+    exclude_folder_id: Optional[int] = None,
+) -> int:
+    query = db.query(func.max(models.Folder.sort_order)).filter(
+        models.Folder.parent_id.is_(None) if parent_id is None else models.Folder.parent_id == parent_id
+    )
+    if exclude_folder_id is not None:
+        query = query.filter(models.Folder.id != exclude_folder_id)
+
+    max_sort_order = query.scalar()
+    return 0 if max_sort_order is None else max_sort_order + 1
+
+
+def _generate_unique_folder_name(
+    desired_name: str,
+    sibling_names: List[str],
+    exclude_name: Optional[str] = None,
+) -> str:
+    normalized = desired_name.strip() or "New folder"
+    used = {
+        name.strip()
+        for name in sibling_names
+        if name and name.strip() and name.strip() != exclude_name
+    }
+
+    if normalized not in used:
+        return normalized
+
+    match = FOLDER_SUFFIX_RE.match(normalized)
+    base_name = match.group("base") if match else normalized
+
+    index = 1
+    while f"{base_name} ({index})" in used:
+        index += 1
+    return f"{base_name} ({index})"
+
+
+def _sibling_folder_names(
+    db: Session,
+    parent_id: Optional[int],
+    exclude_folder_id: Optional[int] = None,
+) -> List[str]:
+    query = db.query(models.Folder.name).filter(
+        models.Folder.parent_id.is_(None) if parent_id is None else models.Folder.parent_id == parent_id
+    )
+    if exclude_folder_id is not None:
+        query = query.filter(models.Folder.id != exclude_folder_id)
+    return [name for (name,) in query.all()]
 
 
 # ── Bookmarks ──────────────────────────────────────────────────────────────────
@@ -261,10 +316,11 @@ def get_folder_by_id(db: Session, folder_id: int):
 
 
 def create_folder(db: Session, data: schemas.FolderCreate):
+    sibling_names = _sibling_folder_names(db, data.parent_id)
     folder = models.Folder(
-        name=data.name,
+        name=_generate_unique_folder_name(data.name, sibling_names),
         parent_id=data.parent_id,
-        sort_order=data.sort_order,
+        sort_order=data.sort_order if data.sort_order is not None else _next_folder_sort_order(db, data.parent_id),
     )
     db.add(folder)
     db.commit()
@@ -287,6 +343,17 @@ def update_folder(db: Session, folder_id: int, data: schemas.FolderUpdate):
         subtree_ids = set(_collect_descendant_folder_ids(folders, folder_id))
         if next_parent_id in subtree_ids:
             raise ValueError("Folder cannot be moved into its descendant")
+
+    next_name = update_data.get("name", folder.name)
+    parent_changed = next_parent_id != folder.parent_id
+    name_changed = next_name != folder.name
+
+    if parent_changed or name_changed:
+        sibling_names = _sibling_folder_names(db, next_parent_id, exclude_folder_id=folder_id)
+        update_data["name"] = _generate_unique_folder_name(next_name, sibling_names)
+
+    if parent_changed and "sort_order" not in update_data:
+        update_data["sort_order"] = _next_folder_sort_order(db, next_parent_id, exclude_folder_id=folder_id)
 
     for key, value in update_data.items():
         setattr(folder, key, value)

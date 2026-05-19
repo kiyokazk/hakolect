@@ -9,6 +9,7 @@ import {
   reorderBookmarks,
 } from '../api/bookmarks'
 import useAppStore from '../store/useAppStore'
+import { FOLDERS_KEY } from './useFolders'
 
 export const BOOKMARKS_KEY = 'bookmarks'
 
@@ -58,6 +59,7 @@ export function useUpdateBookmark() {
     mutationFn: ({ id, data }) => updateBookmark(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [BOOKMARKS_KEY] })
+      qc.invalidateQueries({ queryKey: [FOLDERS_KEY] })
     },
   })
 }

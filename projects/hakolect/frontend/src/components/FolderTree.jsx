@@ -1,25 +1,25 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowDown,
+  ArrowUp,
+  Check,
   ChevronRight,
   Folder,
+  FolderInput,
   FolderOpen,
   MoreVertical,
-  Plus,
   Pencil,
+  Plus,
   Trash2,
-  FolderInput,
-  ArrowUp,
-  ArrowDown,
-  Check,
   X,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useDroppable } from '@dnd-kit/core'
 import {
-  useUpdateFolder,
-  useDeleteFolder,
   useCreateFolder,
+  useDeleteFolder,
   useReorderFolders,
+  useUpdateFolder,
 } from '../hooks/useFolders'
 import useAppStore from '../store/useAppStore'
 import { useToast } from './Toast'
@@ -27,9 +27,73 @@ import ConfirmDialog from './ConfirmDialog'
 import {
   collectDescendantIds,
   flattenFolders,
+  getNextFolderName,
   getSiblingFolders,
 } from '../utils/folderTree'
 import { useBookmarkDnd } from './dnd/BookmarkDndProvider'
+
+function DraftFolderRow({ depth = 0, parentId = null, initialName, onDone, onCreated }) {
+  const createFolder = useCreateFolder()
+  const { addToast } = useToast()
+  const [name, setName] = useState(initialName)
+  const inputRef = useRef(null)
+  const submittedRef = useRef(false)
+  const cancelledRef = useRef(false)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }, [])
+
+  async function submit(rawValue) {
+    if (cancelledRef.current || submittedRef.current || createFolder.isPending) return
+
+    submittedRef.current = true
+    const nextName = rawValue.trim() || initialName
+
+    try {
+      const created = await createFolder.mutateAsync({ name: nextName, parent_id: parentId })
+      addToast('Folder created', 'success')
+      onCreated?.(created)
+      onDone()
+    } catch {
+      submittedRef.current = false
+      addToast('Failed to create folder', 'error')
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }
+
+  return (
+    <div style={{ paddingLeft: `${depth * 12 + 4}px` }} className="relative">
+      <div className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 px-2 py-1.5 text-sm shadow-sm">
+        <span className="w-[14px] shrink-0" />
+        <FolderOpen size={15} className="shrink-0 text-blue-600" />
+        <input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => submit(name)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              submit(name)
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault()
+              cancelledRef.current = true
+              onDone()
+            }
+          }}
+          className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-2 py-1 text-sm outline-none ring-0 focus:border-blue-500"
+        />
+        <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[11px] font-medium text-blue-700">
+          New
+        </span>
+      </div>
+    </div>
+  )
+}
 
 function FolderItem({ folder, depth = 0, tree, flatFolders }) {
   const selectedFolderId = useAppStore((s) => s.selectedFolderId)
@@ -44,21 +108,24 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
   const [newName, setNewName] = useState(folder.name)
   const [targetParentId, setTargetParentId] = useState(folder.parent_id ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [draftChildName, setDraftChildName] = useState(null)
 
   const updateFolder = useUpdateFolder()
   const deleteFolder = useDeleteFolder()
-  const createFolder = useCreateFolder()
   const reorderFolders = useReorderFolders()
   const dnd = useBookmarkDnd()
   const { isOver, setNodeRef } = useDroppable({ id: dnd ? dnd.folderTargetId(folder.id) : `folder:${folder.id}` })
   const isSelected = selectedFolderId === folder.id
   const hasChildren = folder.children && folder.children.length > 0
   const descendantIds = useMemo(() => new Set(collectDescendantIds(tree, folder.id)), [tree, folder.id])
-
   const moveCandidates = useMemo(
     () => flatFolders.filter((item) => !descendantIds.has(item.id)),
     [descendantIds, flatFolders]
   )
+
+  const isDragMode = Boolean(dnd?.activeBookmark)
+  const dropActive = isDragMode && isOver
+  const recentDrop = dnd?.recentDropTargetId === folder.id
 
   function handleSelect() {
     setSelectedFolder(folder.id)
@@ -66,13 +133,15 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
   }
 
   async function handleRename() {
-    if (newName.trim() === folder.name) {
+    const normalizedName = newName.trim() || folder.name
+    if (normalizedName === folder.name) {
       setRenaming(false)
+      setNewName(folder.name)
       return
     }
     try {
-      await updateFolder.mutateAsync({ id: folder.id, data: { name: newName.trim() } })
-      addToast('Folder renamed', 'success')
+      const updated = await updateFolder.mutateAsync({ id: folder.id, data: { name: normalizedName } })
+      addToast(updated?.name !== normalizedName ? `Renamed to ${updated.name}` : 'Folder renamed', 'success')
     } catch {
       addToast('Failed to rename', 'error')
       setNewName(folder.name)
@@ -99,15 +168,11 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
     }
   }
 
-  async function handleNewSubfolder() {
+  function handleNewSubfolder() {
     setMenuOpen(false)
-    try {
-      await createFolder.mutateAsync({ name: 'New folder', parent_id: folder.id })
-      setExpanded(true)
-      addToast('Subfolder created', 'success')
-    } catch {
-      addToast('Failed to create subfolder', 'error')
-    }
+    setExpanded(true)
+    setMoving(false)
+    setDraftChildName(getNextFolderName(getSiblingFolders(tree, folder.id)))
   }
 
   async function handleMoveFolder() {
@@ -162,15 +227,19 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
         <div
           ref={setNodeRef}
           className={clsx(
-            'flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-sm',
-            isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-100',
-            dnd?.activeBookmark && isOver && 'ring-2 ring-blue-400 bg-blue-50'
+            'flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm transition-colors',
+            isSelected
+              ? 'border-blue-200 bg-blue-50 text-blue-700 font-medium'
+              : 'border-transparent text-gray-700 hover:bg-gray-100',
+            isDragMode && 'border-dashed border-blue-200 bg-blue-50/30',
+            dropActive && 'border-blue-400 bg-blue-100 ring-2 ring-blue-300',
+            recentDrop && 'border-emerald-200 bg-emerald-50 text-emerald-700'
           )}
           onClick={handleSelect}
         >
           <button
             onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
-            className={clsx('shrink-0', !hasChildren && 'invisible')}
+            className={clsx('shrink-0', !hasChildren && !draftChildName && 'invisible')}
           >
             <ChevronRight
               size={14}
@@ -181,7 +250,7 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
           {isSelected ? (
             <FolderOpen size={15} className="shrink-0 text-blue-600" />
           ) : (
-            <Folder size={15} className="shrink-0 text-gray-500" />
+            <Folder size={15} className={clsx('shrink-0', recentDrop ? 'text-emerald-600' : 'text-gray-500')} />
           )}
 
           {renaming ? (
@@ -191,11 +260,14 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
               onBlur={handleRename}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleRename()
-                if (e.key === 'Escape') { setRenaming(false); setNewName(folder.name) }
+                if (e.key === 'Escape') {
+                  setRenaming(false)
+                  setNewName(folder.name)
+                }
               }}
               autoFocus
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 bg-white border border-blue-400 rounded px-1 py-0 text-sm outline-none"
+              className="flex-1 rounded border border-blue-400 bg-white px-1 py-0 text-sm outline-none"
             />
           ) : (
             <span className="flex-1 truncate">{folder.name}</span>
@@ -203,8 +275,12 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
 
           <span
             className={clsx(
-              'text-[11px] px-1.5 py-0.5 rounded-full font-medium shrink-0',
-              isSelected ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+              'shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-medium',
+              recentDrop
+                ? 'bg-emerald-100 text-emerald-700'
+                : isSelected
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-500'
             )}
           >
             {folder.bookmark_count ?? 0}
@@ -212,14 +288,14 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
 
           <button
             onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v) }}
-            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-200 shrink-0 max-md:opacity-100"
+            className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100 max-md:opacity-100"
           >
             <MoreVertical size={13} />
           </button>
         </div>
 
         {moving && (
-          <div className="mt-2 ml-7 rounded-xl border border-blue-200 bg-blue-50/70 p-3 space-y-2">
+          <div className="ml-7 mt-2 space-y-2 rounded-xl border border-blue-200 bg-blue-50/70 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-medium text-blue-800">Move folder</p>
               <button
@@ -227,7 +303,7 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
                   setMoving(false)
                   setTargetParentId(folder.parent_id ?? '')
                 }}
-                className="p-1 rounded text-blue-700 hover:bg-blue-100"
+                className="rounded p-1 text-blue-700 hover:bg-blue-100"
               >
                 <X size={12} />
               </button>
@@ -236,7 +312,7 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
             <select
               value={targetParentId}
               onChange={(e) => setTargetParentId(e.target.value)}
-              className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Top level</option>
               {moveCandidates.map((candidate) => (
@@ -249,7 +325,7 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
               <button
                 onClick={handleMoveFolder}
                 disabled={updateFolder.isPending}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 <Check size={14} />
                 {updateFolder.isPending ? 'Moving...' : 'Move'}
@@ -259,7 +335,7 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
                   setMoving(false)
                   setTargetParentId(folder.parent_id ?? '')
                 }}
-                className="px-3 py-2 text-sm rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-100"
+                className="rounded-lg border border-blue-200 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100"
               >
                 Cancel
               </button>
@@ -268,10 +344,10 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
         )}
 
         {menuOpen && (
-          <div className="absolute right-2 top-8 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-44 text-sm">
+          <div className="absolute right-2 top-8 z-30 w-44 rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg">
             <button
               onClick={(e) => { e.stopPropagation(); setRenaming(true); setMenuOpen(false); setMoving(false) }}
-              className="flex items-center gap-2 w-full px-3 py-2 text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
             >
               <Pencil size={13} /> Rename
             </button>
@@ -281,32 +357,32 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
                 setMoving(true)
                 setMenuOpen(false)
               }}
-              className="flex items-center gap-2 w-full px-3 py-2 text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
             >
               <FolderInput size={13} /> Move to...
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleReorder('up') }}
-              className="flex items-center gap-2 w-full px-3 py-2 text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
             >
               <ArrowUp size={13} /> Move up
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleReorder('down') }}
-              className="flex items-center gap-2 w-full px-3 py-2 text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
             >
               <ArrowDown size={13} /> Move down
             </button>
             <button
-              onClick={handleNewSubfolder}
-              className="flex items-center gap-2 w-full px-3 py-2 text-gray-700 hover:bg-gray-50"
+              onClick={(e) => { e.stopPropagation(); handleNewSubfolder() }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
             >
               <Plus size={13} /> New subfolder
             </button>
             <div className="my-1 border-t border-gray-100" />
             <button
               onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false) }}
-              className="flex items-center gap-2 w-full px-3 py-2 text-red-600 hover:bg-red-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50"
             >
               <Trash2 size={13} /> Delete
             </button>
@@ -318,9 +394,9 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
         )}
       </div>
 
-      {expanded && hasChildren && (
+      {expanded && (
         <div>
-          {folder.children.map((child) => (
+          {folder.children?.map((child) => (
             <FolderItem
               key={child.id}
               folder={child}
@@ -329,6 +405,15 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
               flatFolders={flatFolders}
             />
           ))}
+          {draftChildName && (
+            <DraftFolderRow
+              depth={depth + 1}
+              parentId={folder.id}
+              initialName={draftChildName}
+              onDone={() => setDraftChildName(null)}
+              onCreated={() => setExpanded(true)}
+            />
+          )}
         </div>
       )}
 
@@ -343,14 +428,22 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
   )
 }
 
-export default function FolderTree({ folders }) {
-  if (!folders || folders.length === 0) return null
+export default function FolderTree({ folders, newFolderRequestKey = 0 }) {
+  const flatFolders = useMemo(() => flattenFolders(folders || []), [folders])
+  const [rootDraftName, setRootDraftName] = useState(null)
+  const lastRequestRef = useRef(newFolderRequestKey)
 
-  const flatFolders = flattenFolders(folders)
+  useEffect(() => {
+    if (newFolderRequestKey === lastRequestRef.current) return
+    lastRequestRef.current = newFolderRequestKey
+    setRootDraftName(getNextFolderName(getSiblingFolders(folders || [], null)))
+  }, [folders, newFolderRequestKey])
+
+  if ((!folders || folders.length === 0) && !rootDraftName) return null
 
   return (
     <div className="space-y-0.5" data-folder-count={flatFolders.length}>
-      {folders.map((folder) => (
+      {folders?.map((folder) => (
         <FolderItem
           key={folder.id}
           folder={folder}
@@ -358,6 +451,12 @@ export default function FolderTree({ folders }) {
           flatFolders={flatFolders}
         />
       ))}
+      {rootDraftName && (
+        <DraftFolderRow
+          initialName={rootDraftName}
+          onDone={() => setRootDraftName(null)}
+        />
+      )}
     </div>
   )
 }

@@ -41,7 +41,15 @@ class TagWithCount(TagOut):
 class FolderBase(BaseModel):
     name: str
     parent_id: Optional[int] = None
-    sort_order: int = 0
+    sort_order: Optional[int] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Folder name is required")
+        return value
 
 
 class FolderCreate(FolderBase):
@@ -52,6 +60,16 @@ class FolderUpdate(BaseModel):
     name: Optional[str] = None
     parent_id: Optional[int] = None
     sort_order: Optional[int] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("Folder name is required")
+        return value
 
 
 class FolderOut(FolderBase):

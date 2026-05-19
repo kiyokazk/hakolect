@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   closestCenter,
   DndContext,
@@ -43,12 +43,20 @@ export default function BookmarkDndProvider({ children }) {
   const [optimisticBookmarks, setOptimisticBookmarks] = useState([])
   const [activeBookmark, setActiveBookmark] = useState(null)
   const [overTargetId, setOverTargetId] = useState(null)
+  const [recentDropTargetId, setRecentDropTargetId] = useState(null)
+  const recentDropTimerRef = useRef(null)
 
   const bookmarks = data?.bookmarks || data?.items || []
 
   useEffect(() => {
     setOptimisticBookmarks(bookmarks)
   }, [bookmarks])
+
+  useEffect(() => () => {
+    if (recentDropTimerRef.current) {
+      window.clearTimeout(recentDropTimerRef.current)
+    }
+  }, [])
 
   const canReorder = useMemo(() => {
     if (searchKeyword || activeTag) return false
@@ -65,12 +73,24 @@ export default function BookmarkDndProvider({ children }) {
     [optimisticBookmarks]
   )
 
+  function flashDropTarget(targetId) {
+    if (recentDropTimerRef.current) {
+      window.clearTimeout(recentDropTimerRef.current)
+    }
+    setRecentDropTargetId(targetId)
+    recentDropTimerRef.current = window.setTimeout(() => {
+      setRecentDropTargetId(null)
+      recentDropTimerRef.current = null
+    }, 1000)
+  }
+
   async function handleFolderMove(bookmarkId, nextFolderId) {
     const targetFolderId = resolveFolderMove(nextFolderId)
     await updateBookmark.mutateAsync({
       id: bookmarkId,
       data: { folder_id: targetFolderId },
     })
+    flashDropTarget(nextFolderId)
   }
 
   async function handleReorder(activeId, overId) {
@@ -141,6 +161,7 @@ export default function BookmarkDndProvider({ children }) {
     bookmarkTargetId,
     getFolderPath: (folderId) => getFolderPath(folders, folderId),
     overTargetId,
+    recentDropTargetId,
     selectedFolderId,
     sortableIds,
     sortingStrategy: viewMode === 'grid' ? rectSortingStrategy : verticalListSortingStrategy,
@@ -160,10 +181,10 @@ export default function BookmarkDndProvider({ children }) {
         <DragOverlay>
           {activeBookmark ? (
             <div className="max-w-xs rounded-xl border border-blue-300 bg-white px-3 py-2 shadow-xl opacity-95">
-              <p className="text-sm font-medium text-gray-900 truncate">
+              <p className="truncate text-sm font-medium text-gray-900">
                 {activeBookmark.title || activeBookmark.url}
               </p>
-              <p className="text-xs text-gray-500 truncate">{activeBookmark.url}</p>
+              <p className="truncate text-xs text-gray-500">{activeBookmark.url}</p>
             </div>
           ) : null}
         </DragOverlay>

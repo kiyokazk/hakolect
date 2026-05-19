@@ -77,7 +77,7 @@ export default function ContentArea() {
     const folderName = activeFolderPath[activeFolderPath.length - 1]?.name || 'This folder'
     emptyState = {
       title: `${folderName} is empty`,
-      description: 'Use Move to... or drag-reorder items here after saving.',
+      description: 'Drag items here, or use Move to... if drag is unavailable in the current view.',
     }
   }
 
@@ -104,8 +104,8 @@ export default function ContentArea() {
       <div className="flex items-center justify-between mb-4 gap-3">
         <div className="text-xs text-gray-500">
           {reorderEnabled
-            ? 'Drag cards to reorder within the current view.'
-            : 'Reorder is available inside a specific folder or Unsorted after clearing tag/search filters.'}
+            ? 'Drag cards to reorder here, or drop them onto folders from the sidebar to move them.'
+            : 'Reorder is available inside a specific folder or Unsorted after clearing tag/search filters. Drag-to-move still works.'}
         </div>
         <div className="flex gap-0.5 bg-gray-100 p-0.5 rounded-lg">
           <button
@@ -130,9 +130,9 @@ export default function ContentArea() {
       </div>
 
       {isLoading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 h-36 animate-pulse" />
+            <div key={i} className="h-36 rounded-xl border border-gray-200 bg-white animate-pulse" />
           ))}
         </div>
       )}
@@ -158,7 +158,7 @@ export default function ContentArea() {
       {!isLoading && !isError && bookmarks.length > 0 && (
         <BookmarkSortableContext>
           {viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               {bookmarks.map((bm) => (
                 <SortableBookmarkCard
                   key={bm.id}
@@ -320,11 +320,8 @@ function BookmarkListItem({ bookmark, isSelected, dragAttributes, dragListeners,
       <button
         type="button"
         onClick={(e) => e.stopPropagation()}
-        className={clsx(
-          'shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700',
-          dragDisabled && 'opacity-40 cursor-not-allowed'
-        )}
-        title={dragDisabled ? 'Clear tag/search filters to reorder' : 'Drag to reorder'}
+        className="shrink-0 rounded-md p-1 text-gray-400 opacity-70 hover:bg-gray-100 hover:text-gray-700 hover:opacity-100"
+        title="Drag to move. Reorder is available after clearing search or tag filters."
         {...dragAttributes}
         {...dragListeners}
       >
