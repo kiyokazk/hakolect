@@ -195,7 +195,7 @@ export default function BookmarkDndProvider({ children }) {
 
 export function BookmarkSortableContext({ children }) {
   const dnd = useBookmarkDnd()
-  if (!dnd) return children
+  if (!dnd || !dnd.canReorder) return children
 
   return (
     <SortableContext items={dnd.sortableIds} strategy={dnd.sortingStrategy}>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { LayoutGrid, List, ChevronRight, Inbox, MoreHorizontal, GripVertical } from 'lucide-react'
 import clsx from 'clsx'
+import { useDraggable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import BookmarkCard from './BookmarkCard'
@@ -104,8 +105,10 @@ export default function ContentArea() {
       <div className="flex items-center justify-between mb-4 gap-3">
         <div className="text-xs text-gray-500">
           {reorderEnabled
-            ? 'Drag cards to reorder here, or drop them onto folders from the sidebar to move them.'
-            : 'Reorder is available inside a specific folder or Unsorted after clearing tag/search filters. Drag-to-move still works.'}
+            ? 'Drag a card (or its grip) to reorder here, or drop it onto folders from the sidebar to move it.'
+            : selectedFolderId === null && !searchKeyword && !activeTag
+              ? 'All hakolect is move-only. Drag a card by its grip onto folders from the sidebar to reorganize it.'
+              : 'Reorder is available inside a specific folder or Unsorted after clearing tag/search filters. You can still drag a card to move it.'}
         </div>
         <div className="flex gap-0.5 bg-gray-100 p-0.5 rounded-lg">
           <button
@@ -218,6 +221,10 @@ function getDropIndicatorPosition(dnd, sortableId) {
 
 function SortableBookmarkCard({ bookmark, isSelected, disabled }) {
   const dnd = useBookmarkDnd()
+  if (dnd && !dnd.canReorder) {
+    return <DraggableBookmarkCard bookmark={bookmark} isSelected={isSelected} />
+  }
+
   const sortableId = dnd ? dnd.bookmarkTargetId(bookmark.id) : bookmark.id
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: sortableId,
@@ -248,8 +255,35 @@ function SortableBookmarkCard({ bookmark, isSelected, disabled }) {
   )
 }
 
+function DraggableBookmarkCard({ bookmark, isSelected }) {
+  const dnd = useBookmarkDnd()
+  const draggableId = dnd ? dnd.bookmarkTargetId(bookmark.id) : bookmark.id
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: draggableId,
+  })
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      data-bookmark-id={bookmark.id}
+      className={clsx('relative', isDragging && 'z-20 opacity-70')}
+    >
+      <BookmarkCard bookmark={bookmark} isSelected={isSelected} dragAttributes={attributes} dragListeners={listeners} />
+    </div>
+  )
+}
+
 function SortableBookmarkListItem({ bookmark, isSelected, disabled }) {
   const dnd = useBookmarkDnd()
+  if (dnd && !dnd.canReorder) {
+    return <DraggableBookmarkListItem bookmark={bookmark} isSelected={isSelected} />
+  }
+
   const sortableId = dnd ? dnd.bookmarkTargetId(bookmark.id) : bookmark.id
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: sortableId,
@@ -286,6 +320,35 @@ function SortableBookmarkListItem({ bookmark, isSelected, disabled }) {
   )
 }
 
+function DraggableBookmarkListItem({ bookmark, isSelected }) {
+  const dnd = useBookmarkDnd()
+  const draggableId = dnd ? dnd.bookmarkTargetId(bookmark.id) : bookmark.id
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: draggableId,
+  })
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      data-bookmark-id={bookmark.id}
+      className={clsx('relative', isDragging && 'z-20 opacity-70')}
+    >
+      <BookmarkListItem
+        bookmark={bookmark}
+        isSelected={isSelected}
+        dragAttributes={attributes}
+        dragListeners={listeners}
+        dragDisabled={false}
+      />
+    </div>
+  )
+}
+
 function BookmarkListItem({ bookmark, isSelected, dragAttributes, dragListeners, dragDisabled }) {
   const openDetail = useAppStore((s) => s.openDetail)
   const deleteMutation = useDeleteBookmark()
@@ -294,6 +357,11 @@ function BookmarkListItem({ bookmark, isSelected, dragAttributes, dragListeners,
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const menuButtonRef = useRef(null)
+  const dnd = useBookmarkDnd()
+
+  const dragTitle = dnd?.canReorder
+    ? 'Drag this row to move or reorder'
+    : 'Drag this row into a folder to move it. Reorder is available only inside a specific folder or Unsorted.'
 
   async function handleDelete() {
     setConfirmDelete(false)
@@ -320,8 +388,8 @@ function BookmarkListItem({ bookmark, isSelected, dragAttributes, dragListeners,
       <button
         type="button"
         onClick={(e) => e.stopPropagation()}
-        className="shrink-0 rounded-md p-1 text-gray-400 opacity-70 hover:bg-gray-100 hover:text-gray-700 hover:opacity-100"
-        title="Drag to move. Reorder is available after clearing search or tag filters."
+        className="shrink-0 rounded-md p-1 text-gray-400 opacity-70 hover:bg-gray-100 hover:text-gray-700 hover:opacity-100 cursor-grab active:cursor-grabbing"
+        title={dragTitle}
         {...dragAttributes}
         {...dragListeners}
       >
@@ -352,6 +420,7 @@ function BookmarkListItem({ bookmark, isSelected, dragAttributes, dragListeners,
       )}
       <button
         ref={menuButtonRef}
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation()
           const nextOpen = !menuOpen

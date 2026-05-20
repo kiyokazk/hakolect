@@ -48,8 +48,10 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
   const dnd = useBookmarkDnd()
 
   const dragTitle = dnd?.canReorder
-    ? 'Drag to move or reorder'
-    : 'Drag to move. Reorder is available after clearing search or tag filters.'
+    ? 'Drag this card to move or reorder'
+    : dnd?.selectedFolderId === null
+      ? 'Drag this card into a folder to move it. Reorder is not available in All hakolect.'
+      : 'Drag this card to move. Reorder is available after clearing search or tag filters.'
 
   function handleCardClick() {
     window.open(bookmark.url, '_blank', 'noopener,noreferrer')
@@ -108,7 +110,7 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            className="absolute left-1.5 top-1.5 rounded-md bg-white/90 p-1 text-gray-500 shadow-sm transition-all hover:bg-white hover:text-gray-800 opacity-70 hover:opacity-100"
+            className="absolute left-1.5 top-1.5 rounded-md bg-white/90 p-1 text-gray-500 shadow-sm transition-all hover:bg-white hover:text-gray-800 opacity-70 hover:opacity-100 cursor-grab active:cursor-grabbing"
             title={dragTitle}
             {...dragAttributes}
             {...dragListeners}
@@ -119,6 +121,7 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
           <button
             ref={menuButtonRef}
             onClick={handleMenuClick}
+            onPointerDown={(e) => e.stopPropagation()}
             className={clsx(
               'absolute right-1.5 top-1.5 rounded-md bg-white/90 p-1 text-gray-600 shadow-sm transition-all hover:bg-white hover:text-gray-900',
               menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 md:opacity-0 max-md:opacity-100'
