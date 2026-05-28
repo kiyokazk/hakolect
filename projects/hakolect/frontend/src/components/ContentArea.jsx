@@ -133,7 +133,7 @@ export default function ContentArea() {
       </div>
 
       {isLoading && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(160px,240px))]">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="overflow-hidden rounded-xl border border-gray-200 bg-white animate-pulse">
               <div className="aspect-[4/3] bg-gray-100" />
@@ -167,7 +167,7 @@ export default function ContentArea() {
       {!isLoading && !isError && bookmarks.length > 0 && (
         <BookmarkSortableContext>
           {viewMode === 'grid' ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(160px,240px))]">
               {bookmarks.map((bm) => (
                 <SortableBookmarkCard
                   key={bm.id}
