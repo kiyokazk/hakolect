@@ -4,6 +4,7 @@ import {
   ArrowUp,
   Check,
   ChevronRight,
+  Download,
   Folder,
   FolderInput,
   FolderOpen,
@@ -31,6 +32,7 @@ import {
   getSiblingFolders,
 } from '../utils/folderTree'
 import { useBookmarkDnd } from './dnd/BookmarkDndProvider'
+import { exportFolderData } from '../api/data'
 
 function DraftFolderRow({ depth = 0, parentId = null, initialName, onDone, onCreated }) {
   const createFolder = useCreateFolder()
@@ -192,6 +194,15 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
       setMenuOpen(false)
     } catch {
       addToast('Failed to move folder', 'error')
+    }
+  }
+
+  async function handleExportFolder() {
+    try {
+      await exportFolderData(folder.id)
+      setMenuOpen(false)
+    } catch (error) {
+      addToast(error?.userMessage || 'Failed to export folder', 'error')
     }
   }
 
@@ -360,6 +371,15 @@ function FolderItem({ folder, depth = 0, tree, flatFolders }) {
               className="flex w-full items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
             >
               <FolderInput size={13} /> Move to...
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleExportFolder()
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
+            >
+              <Download size={13} /> Export folder
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleReorder('up') }}

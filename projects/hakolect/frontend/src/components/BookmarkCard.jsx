@@ -46,12 +46,11 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
   const deleteMutation = useDeleteBookmark()
   const { addToast } = useToast()
   const dnd = useBookmarkDnd()
+  const showDragHandle = dnd?.selectedFolderId !== null
 
   const dragTitle = dnd?.canReorder
-    ? 'Drag this card to move or reorder'
-    : dnd?.selectedFolderId === null
-      ? 'Drag this card into a folder to move it. Reorder is not available in All hakolect.'
-      : 'Drag this card to move. Reorder is available after clearing search or tag filters.'
+    ? 'カードを動かして並び替えできます'
+    : '絞り込み中は並び替えできません。移動のみ利用できます。'
 
   function handleCardClick() {
     window.open(bookmark.url, '_blank', 'noopener,noreferrer')
@@ -87,7 +86,7 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
           isSelected ? 'border-blue-500 shadow-md ring-1 ring-blue-500' : 'border-gray-200'
         )}
       >
-        <div className="relative h-14 overflow-hidden bg-gray-100">
+        <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
           {bookmark.ogp_image_url ? (
             <img
               src={bookmark.ogp_image_url}
@@ -107,16 +106,18 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
               )}
             </div>
           )}
-          <button
-            type="button"
-            onClick={(e) => e.stopPropagation()}
-            className="absolute left-1.5 top-1.5 rounded-md bg-white/90 p-1 text-gray-500 shadow-sm transition-all hover:bg-white hover:text-gray-800 opacity-70 hover:opacity-100 cursor-grab active:cursor-grabbing"
-            title={dragTitle}
-            {...dragAttributes}
-            {...dragListeners}
-          >
-            <GripVertical size={14} />
-          </button>
+          {showDragHandle && (
+            <button
+              type="button"
+              onClick={(e) => e.stopPropagation()}
+              className="absolute left-1.5 top-1.5 rounded-md bg-white/90 p-1 text-gray-500 shadow-sm transition-all hover:bg-white hover:text-gray-800 opacity-70 hover:opacity-100 cursor-grab active:cursor-grabbing"
+              title={dragTitle}
+              {...dragAttributes}
+              {...dragListeners}
+            >
+              <GripVertical size={14} />
+            </button>
+          )}
 
           <button
             ref={menuButtonRef}
@@ -164,11 +165,11 @@ export default function BookmarkCard({ bookmark, isSelected, dragAttributes, dra
           <p className="mb-1.5 truncate text-xs text-gray-400">{getDomain(bookmark.url)}</p>
 
           {bookmark.comment && (
-            <p className="mb-1.5 line-clamp-2 text-xs text-gray-600">{bookmark.comment}</p>
+            <p className="mb-1.5 line-clamp-2 text-xs text-gray-600 hidden md:block">{bookmark.comment}</p>
           )}
 
           {tagNames.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
+            <div className="mt-1 hidden md:flex flex-wrap gap-1">
               {tagNames.slice(0, 3).map((tag) => (
                 <span
                   key={tag}

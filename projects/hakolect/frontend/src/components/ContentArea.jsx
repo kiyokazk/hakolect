@@ -60,25 +60,25 @@ export default function ContentArea() {
   }
 
   let emptyState = {
-    title: 'No bookmarks yet',
-    description: 'Add your first bookmark with the + Add button, or drop a URL in the Slack channel.',
+    title: 'まだブックマークがありません',
+    description: '+ Add から追加するか、Slack から URL を送って保存してください。',
   }
 
   if (searchKeyword) {
     emptyState = {
-      title: `No bookmarks found for "${searchKeyword}"`,
-      description: 'Try a different search term.',
+      title: `「${searchKeyword}」に一致するブックマークはありません`,
+      description: '別の検索語で試してください。',
     }
   } else if (selectedFolderId === 'unsorted') {
     emptyState = {
-      title: 'All caught up!',
-      description: 'No unsorted bookmarks.',
+      title: '未整理アイテムはありません',
+      description: 'いまは Unsorted に項目がありません。',
     }
   } else if (selectedFolderId !== null) {
-    const folderName = activeFolderPath[activeFolderPath.length - 1]?.name || 'This folder'
+    const folderName = activeFolderPath[activeFolderPath.length - 1]?.name || 'このフォルダ'
     emptyState = {
-      title: `${folderName} is empty`,
-      description: 'Drag items here, or use Move to... if drag is unavailable in the current view.',
+      title: `${folderName} は空です`,
+      description: 'Move to... から項目を移動して整理できます。',
     }
   }
 
@@ -105,10 +105,10 @@ export default function ContentArea() {
       <div className="flex items-center justify-between mb-4 gap-3">
         <div className="text-xs text-gray-500">
           {reorderEnabled
-            ? 'Drag a card (or its grip) to reorder here, or drop it onto folders from the sidebar to move it.'
+            ? 'この画面ではカードの並び替えとフォルダ移動ができます。'
             : selectedFolderId === null && !searchKeyword && !activeTag
-              ? 'All hakolect is move-only. Drag a card by its grip onto folders from the sidebar to reorganize it.'
-              : 'Reorder is available inside a specific folder or Unsorted after clearing tag/search filters. You can still drag a card to move it.'}
+              ? 'Allでは並び替えできません。必要な項目は「…」→「Move to...」からフォルダへ移動してください。'
+              : '絞り込み中は並び替えできません。移動のみ利用できます。'}
         </div>
         <div className="flex gap-0.5 bg-gray-100 p-0.5 rounded-lg">
           <button
@@ -133,17 +133,23 @@ export default function ContentArea() {
       </div>
 
       {isLoading && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-36 rounded-xl border border-gray-200 bg-white animate-pulse" />
+            <div key={i} className="overflow-hidden rounded-xl border border-gray-200 bg-white animate-pulse">
+              <div className="aspect-[4/3] bg-gray-100" />
+              <div className="space-y-2 p-3">
+                <div className="h-3 rounded bg-gray-100" />
+                <div className="h-3 w-2/3 rounded bg-gray-100" />
+              </div>
+            </div>
           ))}
         </div>
       )}
 
       {isError && (
         <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-          <p className="font-medium mb-1">Failed to load bookmarks</p>
-          <p className="text-sm">Check that the API is running.</p>
+          <p className="font-medium mb-1">ブックマークを読み込めませんでした</p>
+          <p className="text-sm">API が起動しているか確認してください。</p>
         </div>
       )}
 
@@ -161,7 +167,7 @@ export default function ContentArea() {
       {!isLoading && !isError && bookmarks.length > 0 && (
         <BookmarkSortableContext>
           {viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
               {bookmarks.map((bm) => (
                 <SortableBookmarkCard
                   key={bm.id}
@@ -358,10 +364,11 @@ function BookmarkListItem({ bookmark, isSelected, dragAttributes, dragListeners,
   const [anchorRect, setAnchorRect] = useState(null)
   const menuButtonRef = useRef(null)
   const dnd = useBookmarkDnd()
+  const showDragHandle = dnd?.selectedFolderId !== null
 
   const dragTitle = dnd?.canReorder
-    ? 'Drag this row to move or reorder'
-    : 'Drag this row into a folder to move it. Reorder is available only inside a specific folder or Unsorted.'
+    ? 'カードを動かして並び替えできます'
+    : '絞り込み中は並び替えできません。移動のみ利用できます。'
 
   async function handleDelete() {
     setConfirmDelete(false)
@@ -385,16 +392,18 @@ function BookmarkListItem({ bookmark, isSelected, dragAttributes, dragListeners,
         isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'
       )}
     >
-      <button
-        type="button"
-        onClick={(e) => e.stopPropagation()}
-        className="shrink-0 rounded-md p-1 text-gray-400 opacity-70 hover:bg-gray-100 hover:text-gray-700 hover:opacity-100 cursor-grab active:cursor-grabbing"
-        title={dragTitle}
-        {...dragAttributes}
-        {...dragListeners}
-      >
-        <GripVertical size={16} />
-      </button>
+      {showDragHandle && (
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 rounded-md p-1 text-gray-400 opacity-70 hover:bg-gray-100 hover:text-gray-700 hover:opacity-100 cursor-grab active:cursor-grabbing"
+          title={dragTitle}
+          {...dragAttributes}
+          {...dragListeners}
+        >
+          <GripVertical size={16} />
+        </button>
+      )}
       {bookmark.favicon_url && (
         <img
           src={bookmark.favicon_url}

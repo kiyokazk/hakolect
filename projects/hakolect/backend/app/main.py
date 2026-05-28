@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base, DATABASE_URL
-from .routers import bookmarks, folders, tags
+from .routers import bookmarks, folders, tags, data
 
 
 @asynccontextmanager
@@ -38,6 +38,7 @@ API_PREFIX = "/api/hakolect/v1"
 app.include_router(bookmarks.router, prefix=API_PREFIX)
 app.include_router(folders.router, prefix=API_PREFIX)
 app.include_router(tags.router, prefix=API_PREFIX)
+app.include_router(data.router, prefix=API_PREFIX)
 
 
 @app.get("/api/hakolect/health")

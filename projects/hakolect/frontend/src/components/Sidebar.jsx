@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Bookmark, InboxIcon, Plus, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Bookmark, Download, InboxIcon, Plus, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useDroppable } from '@dnd-kit/core'
 import FolderTree from './FolderTree'
@@ -7,8 +7,10 @@ import { useFolders } from '../hooks/useFolders'
 import { useBookmarksStats } from '../hooks/useBookmarks'
 import useAppStore from '../store/useAppStore'
 import { useBookmarkDnd } from './dnd/BookmarkDndProvider'
+import { exportUnsortedData } from '../api/data'
+import { useToast } from './Toast'
 
-function NavItem({ icon, label, count, active, onClick, dropId, recentDrop = false }) {
+function NavItem({ icon, label, count, active, onClick, dropId, recentDrop = false, onContextMenu }) {
   const dnd = useBookmarkDnd()
   const { isOver, setNodeRef } = useDroppable({ id: dropId })
   const dropReady = Boolean(dnd?.activeBookmark) && dropId !== 'noop:all'
@@ -18,6 +20,7 @@ function NavItem({ icon, label, count, active, onClick, dropId, recentDrop = fal
     <button
       ref={setNodeRef}
       onClick={onClick}
+      onContextMenu={onContextMenu}
       className={clsx(
         'flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors',
         active
@@ -51,18 +54,40 @@ function SidebarContent() {
   const setSelectedFolder = useAppStore((s) => s.setSelectedFolder)
   const closeSidebar = useAppStore((s) => s.closeSidebar)
   const [newFolderRequestKey, setNewFolderRequestKey] = useState(0)
+  const [unsortedMenuOpen, setUnsortedMenuOpen] = useState(false)
+  const unsortedMenuRef = useRef(null)
 
   const { data: foldersData = [] } = useFolders()
   const { data: allData } = useBookmarksStats()
   const dnd = useBookmarkDnd()
+  const { addToast } = useToast()
 
   const totalCount = allData?.total
   const unsortedCount = allData?.unsorted_count
-  const isDragMode = Boolean(dnd?.activeBookmark)
 
   function handleNewFolder() {
     setNewFolderRequestKey((current) => current + 1)
   }
+
+  async function handleExportUnsorted() {
+    try {
+      await exportUnsortedData()
+      setUnsortedMenuOpen(false)
+    } catch (error) {
+      addToast(error?.userMessage || 'Failed to export Unsorted', 'error')
+    }
+  }
+
+  useEffect(() => {
+    if (!unsortedMenuOpen) return undefined
+    function handlePointerDown(event) {
+      if (!unsortedMenuRef.current?.contains(event.target)) {
+        setUnsortedMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [unsortedMenuOpen])
 
   return (
     <div className="flex h-full flex-col overflow-y-auto py-3">
@@ -75,28 +100,39 @@ function SidebarContent() {
           dropId="noop:all"
           onClick={() => { setSelectedFolder(null); closeSidebar() }}
         />
-        <NavItem
-          icon={<InboxIcon size={15} />}
-          label="Unsorted"
-          count={unsortedCount}
-          active={selectedFolderId === 'unsorted'}
-          recentDrop={dnd?.recentDropTargetId === 'unsorted'}
-          dropId="folder:unsorted"
-          onClick={() => { setSelectedFolder('unsorted'); closeSidebar() }}
-        />
+        <div className="relative" ref={unsortedMenuRef}>
+          <NavItem
+            icon={<InboxIcon size={15} />}
+            label="Unsorted"
+            count={unsortedCount}
+            active={selectedFolderId === 'unsorted'}
+            recentDrop={dnd?.recentDropTargetId === 'unsorted'}
+            dropId="folder:unsorted"
+            onClick={() => { setSelectedFolder('unsorted'); closeSidebar() }}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              setUnsortedMenuOpen(true)
+            }}
+          />
+          {unsortedMenuOpen && (
+            <div className="absolute left-0 top-full z-30 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg">
+              <button
+                onClick={handleExportUnsorted}
+                className="flex w-full items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
+              >
+                <Download size={13} /> Export unsorted
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mx-3 my-3 border-t border-gray-200" />
       <div className="px-3">
-        <div className="mb-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-          {isDragMode
-            ? 'Drop on a folder or Unsorted to move this item.'
-            : 'Items can be dragged into folders. Use Move to... when drag is unavailable.'}
-        </div>
         <FolderTree folders={foldersData} newFolderRequestKey={newFolderRequestKey} />
         {foldersData.length === 0 && (
           <p className="px-3 py-2 text-xs text-gray-400">
-            No folders yet. Create one below, then drag items here to organize them.
+            まだフォルダがありません。New folder から作成して整理できます。
           </p>
         )}
       </div>
