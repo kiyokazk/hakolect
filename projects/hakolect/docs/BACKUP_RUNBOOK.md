@@ -6,7 +6,7 @@ Hakolect の本番バックアップ運用の正本は、**shell script + system
 
 - 実行スクリプト: `/opt/hakolect/app/backup_hakolect_db.sh`
 - cron 定義: `/etc/cron.d/hakolect-db-backup`
-- DB: `/opt/hakolect/app/data/hakolect.db`
+- DB: `/opt/hakolect/persist/hakolect.db`
 - 保存先: `/opt/hakolect/backups`
 - ログ: `/var/log/hakolect-db-backup.log`
 - 最新バックアップ参照: `/opt/hakolect/backups/latest.tar.gz`
@@ -21,7 +21,7 @@ Hakolect の本番バックアップ運用の正本は、**shell script + system
 毎日 03:15 (Asia/Tokyo):
 
 ```cron
-15 3 * * * root RETENTION_DAYS=14 /opt/hakolect/app/backup_hakolect_db.sh /opt/hakolect/app/data/hakolect.db /opt/hakolect/backups >> /var/log/hakolect-db-backup.log 2>&1
+15 3 * * * root RETENTION_DAYS=14 /opt/hakolect/app/backup_hakolect_db.sh /opt/hakolect/persist/hakolect.db /opt/hakolect/backups >> /var/log/hakolect-db-backup.log 2>&1
 ```
 
 確認対象:
@@ -33,7 +33,7 @@ Hakolect の本番バックアップ運用の正本は、**shell script + system
 
 ```bash
 cd /opt/hakolect/app
-RETENTION_DAYS=14 ./backup_hakolect_db.sh /opt/hakolect/app/data/hakolect.db /opt/hakolect/backups
+RETENTION_DAYS=14 ./backup_hakolect_db.sh /opt/hakolect/persist/hakolect.db /opt/hakolect/backups
 ```
 
 ## 4. 手動実行後の確認観点
@@ -67,16 +67,19 @@ cat /etc/cron.d/hakolect-db-backup
 
 ```bash
 cd /opt/hakolect/app
-cp data/hakolect.db data/hakolect.db.before-restore-$(date +%Y%m%d-%H%M%S)
+cp /opt/hakolect/persist/hakolect.db /opt/hakolect/persist/hakolect.db.before-restore-$(date +%Y%m%d-%H%M%S)
 mkdir -p /tmp/hakolect-restore
 rm -f /tmp/hakolect-restore/*
 tar -xzf /opt/hakolect/backups/latest.tar.gz -C /tmp/hakolect-restore
-cp /tmp/hakolect-restore/hakolect.db.* data/hakolect.db
+cp /tmp/hakolect-restore/hakolect.db.* /opt/hakolect/persist/hakolect.db
 docker compose up -d hakolect-api
 curl http://127.0.0.1:8000/api/hakolect/health
 ```
 
 ## 6. 運用上の注意
+
+- 本番 DB は `/opt/hakolect/app` 配下に置かない。`/opt/hakolect/persist` のような永続領域に分離する
+- アプリ反映は `git pull` か `scripts/deploy_production_bundle.sh` を使い、`data/` を deploy 対象から除外する
 
 - デプロイ、スキーマ変更、大量削除の前には定時実行を待たず手動バックアップを追加で取る
 - restore は DB ファイル置換なので、書き込み中には実施しない
@@ -95,7 +98,25 @@ cron やスクリプトを更新する場合は以下で進める。
 5. 生成物 / latest / log を確認
 6. 問題なければ cron はそのまま継続利用
 
-## 8. 参照資料
+## 8. production deploy runbook
+
+本番 deploy は `scripts/deploy_production.sh` を使う。
+
+```bash
+cd /opt/hakolect/app
+HOST_DATA_DIR=/opt/hakolect/persist ./scripts/deploy_production.sh <deploy-target-branch-or-commit>
+```
+
+この script は次をまとめて行う。
+
+1. deploy 前 backup
+2. pre/post の bookmark 件数・folder 件数比較
+3. `docker compose up --build -d` 前に `HOST_DATA_DIR=/opt/hakolect/persist` を固定
+4. health / frontend 応答確認
+
+`tar` / `scp` / `rsync` で working tree を丸ごと転送する運用は避ける。やむを得ず archive 転送する場合も `data/` を必ず除外する。
+
+## 9. 参照資料
 
 - リポジトリ内: `OPERATIONS.md`, `docs/OPERATIONS.md`, `docs/BACKUP_RUNBOOK.md`
 - Vault 内: `~/TerraceK/vault/TerraceK_Vault/yui/projects/hakolect/BACKUP_RUNBOOK.md`

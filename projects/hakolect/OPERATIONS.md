@@ -27,6 +27,7 @@ The production canonical backup implementation is:
 - script: `/opt/hakolect/app/backup_hakolect_db.sh`
 - cron file: `/etc/cron.d/hakolect-db-backup`
 - log file: `/var/log/hakolect-db-backup.log`
+- persistent DB dir: `/opt/hakolect/persist`
 
 This repository keeps the same script at:
 
@@ -39,13 +40,13 @@ If it remains locally for experiments, it is non-canonical and must not override
 
 ```bash
 cd /opt/hakolect/app
-RETENTION_DAYS=14 ./backup_hakolect_db.sh /opt/hakolect/app/data/hakolect.db /opt/hakolect/backups
+RETENTION_DAYS=14 ./backup_hakolect_db.sh /opt/hakolect/persist/hakolect.db /opt/hakolect/backups
 ```
 
 ## 5. Recommended cron (production)
 
 ```cron
-15 3 * * * root RETENTION_DAYS=14 /opt/hakolect/app/backup_hakolect_db.sh /opt/hakolect/app/data/hakolect.db /opt/hakolect/backups >> /var/log/hakolect-db-backup.log 2>&1
+15 3 * * * root RETENTION_DAYS=14 /opt/hakolect/app/backup_hakolect_db.sh /opt/hakolect/persist/hakolect.db /opt/hakolect/backups >> /var/log/hakolect-db-backup.log 2>&1
 ```
 
 ## 6. Manual verification after backup
@@ -70,11 +71,10 @@ After a manual run, confirm all of the following:
 Example restore flow:
 
 ```bash
-cd /opt/hakolect/app
-cp data/hakolect.db data/hakolect.db.before-restore-$(date +%Y%m%d-%H%M%S)
+cp /opt/hakolect/persist/hakolect.db /opt/hakolect/persist/hakolect.db.before-restore-$(date +%Y%m%d-%H%M%S)
 cp /opt/hakolect/backups/latest.tar.gz /tmp/hakolect-latest.tar.gz
 mkdir -p /tmp/hakolect-restore && tar -xzf /tmp/hakolect-latest.tar.gz -C /tmp/hakolect-restore
-cp /tmp/hakolect-restore/hakolect.db.* data/hakolect.db
+cp /tmp/hakolect-restore/hakolect.db.* /opt/hakolect/persist/hakolect.db
 ```
 
 Do the restore only while the app is stopped or while you have confirmed the replacement procedure for the current deploy setup.
@@ -84,3 +84,22 @@ Do the restore only while the app is stopped or while you have confirmed the rep
 The detailed backup/restore runbook lives in:
 - `docs/BACKUP_RUNBOOK.md`
 - `~/TerraceK/vault/TerraceK_Vault/yui/projects/hakolect/BACKUP_RUNBOOK.md`
+
+
+## 10. Production deploy safety
+
+Production deploys must use git-based updates only. Do not transfer the working tree with `tar`, `scp`, or `rsync` unless `data/` is explicitly excluded.
+
+Canonical safe path:
+
+```bash
+cd /opt/hakolect/app
+HOST_DATA_DIR=/opt/hakolect/persist ./scripts/deploy_production.sh <deploy-target-branch-or-commit>
+```
+
+Safety guarantees in the script:
+
+1. DB backup before deploy
+2. persistent DB path fixed to `/opt/hakolect/persist/hakolect.db`
+3. `docker compose` runs with `HOST_DATA_DIR=/opt/hakolect/persist`
+4. post-deploy bookmark/folder count regression check

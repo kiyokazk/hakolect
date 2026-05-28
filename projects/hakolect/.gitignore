@@ -2,6 +2,7 @@
 *.log
 *.sqlite3
 *.db
+/data/
 
 # local artifacts
 hakolect-local-screen*.png

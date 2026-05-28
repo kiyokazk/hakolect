@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DB_PATH="${1:-/opt/hakolect/app/data/hakolect.db}"
+DB_PATH="${1:-/opt/hakolect/persist/hakolect.db}"
 BACKUP_DIR="${2:-/opt/hakolect/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 STAMP="$(date +%Y%m%d-%H%M%S)"

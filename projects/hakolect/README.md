@@ -126,13 +126,13 @@ Canonical production backup method:
 
 ```bash
 cd /opt/hakolect/app
-RETENTION_DAYS=14 ./backup_hakolect_db.sh /opt/hakolect/app/data/hakolect.db /opt/hakolect/backups
+RETENTION_DAYS=14 ./backup_hakolect_db.sh /opt/hakolect/persist/hakolect.db /opt/hakolect/backups
 ```
 
 Production cron:
 
 ```cron
-15 3 * * * root RETENTION_DAYS=14 /opt/hakolect/app/backup_hakolect_db.sh /opt/hakolect/app/data/hakolect.db /opt/hakolect/backups >> /var/log/hakolect-db-backup.log 2>&1
+15 3 * * * root RETENTION_DAYS=14 /opt/hakolect/app/backup_hakolect_db.sh /opt/hakolect/persist/hakolect.db /opt/hakolect/backups >> /var/log/hakolect-db-backup.log 2>&1
 ```
 
 Manual verification after a run:
@@ -158,21 +158,41 @@ Note:
 
 1. Set up a VPS and install Docker Compose + Caddy.
 2. Point the DNS A record for `tool.terracek.com` to the VPS IP.
-3. Copy `.env.example` to `.env`, set a strong `API_KEY`, and create a Caddy Basic Auth hash with `caddy hash-password`.
-4. Copy `caddy-snippet.txt` into your Caddyfile and replace `<hashed_password>`.
-5. Start the app with `docker compose up --build -d`.
-6. Verify locally on the VPS:
-   - `curl -I http://127.0.0.1:3000/hakolect/`
-   - `curl http://127.0.0.1:8000/api/hakolect/health`
-7. Verify through Caddy:
+3. Create a persistent host directory outside the repo:
+   ```bash
+   sudo mkdir -p /opt/hakolect/persist
+   sudo chown "$USER":"$USER" /opt/hakolect/persist
+   ```
+4. Copy `.env.example` to `.env`, set a strong `API_KEY`, set `HOST_DATA_DIR=/opt/hakolect/persist`, and create a Caddy Basic Auth hash with `caddy hash-password`.
+5. Copy `caddy-snippet.txt` into your Caddyfile and replace `<hashed_password>`.
+6. For git-based production updates, run the canonical safe path on the VPS:
+   ```bash
+   cd /opt/hakolect/app
+   HOST_DATA_DIR=/opt/hakolect/persist ./scripts/deploy_production.sh <deploy-target-branch-or-commit>
+   ```
+   This includes backup, rebuild, health checks, and bookmark/folder count regression checks.
+7. If you must transfer a working tree instead of using git, use `scripts/deploy_production_bundle.sh <user@host> /opt/hakolect/app`. It excludes `data/` and `backend/data/` from the payload.
+8. Verify through Caddy:
    - `curl -u '<basic-user>:<basic-pass>' https://tool.terracek.com/api/hakolect/health`
    - open `https://tool.terracek.com/hakolect/`
 
 ### Deployment notes
 
 - `docker-compose.yml` binds ports to `127.0.0.1` only, so the app is exposed publicly through Caddy, not directly.
+- `docker-compose.yml` mounts `${HOST_DATA_DIR:-./data}` to `/app/data`. Local default is `./data`; production must use `/opt/hakolect/persist`.
 - Caddy proxies `/hakolect/*` to the frontend and `/api/hakolect/*` to the backend.
+- Production DB persistence must live outside the application tree. `HOST_DATA_DIR=/opt/hakolect/persist` keeps the live DB out of the deploy payload.
+- `scripts/deploy_production.sh` is the canonical safe deploy path. It takes a backup, locks the persistent DB mount, rebuilds the services, and fails if bookmark/folder counts regress.
+- `scripts/deploy_production_bundle.sh` is the fallback sync helper for non-git transfers. It excludes `data/` and `backend/data/` so app syncs cannot overwrite the live DB.
 - If DNS is not ready yet, you can still validate the app locally on the VPS before switching traffic.
+- Safe production deploy path:
+
+```bash
+cd /opt/hakolect/app
+HOST_DATA_DIR=/opt/hakolect/persist ./scripts/deploy_production.sh <deploy-target-branch-or-commit>
+```
+
+This script backs up the DB first and fails if bookmark/folder counts regress after deploy.
 
 ## DB Schema
 

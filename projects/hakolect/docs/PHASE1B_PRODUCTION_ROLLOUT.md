@@ -31,26 +31,22 @@ npm run build
 ## 2. 本番反映
 
 ### 反映前
-- 最新コードを production deploy 作業者が取得
-- 必要なら DB バックアップを先に実施
+- 本番 DB 永続領域を repo 外に固定してあることを確認（例: `HOST_DATA_DIR=/opt/hakolect/persist`）
+- 最新コードを production deploy 作業者が取得。tar/scp を使う場合は `scripts/deploy_production_bundle.sh` を使い、`data/` を転送しない
+- DB バックアップと件数記録を先に実施
   ```bash
-  cd /opt/hakolect/app
-  RETENTION_DAYS=14 ./backup_hakolect_db.sh /opt/hakolect/app/data/hakolect.db /opt/hakolect/backups
+  scripts/production_data_guard.sh pre <user@host> /opt/hakolect/app /opt/hakolect/backups
   ```
 
 ### 反映コマンド
 ```bash
 cd /opt/hakolect/app
-git fetch origin
-git checkout <deploy-target-branch-or-commit>
-git pull --ff-only
-
-docker compose up --build -d
+HOST_DATA_DIR=/opt/hakolect/persist ./scripts/deploy_production.sh <deploy-target-branch-or-commit>
 ```
 
 ### 反映直後の最低確認
 ```bash
-curl http://127.0.0.1:8000/api/hakolect/health
+scripts/production_data_guard.sh post <user@host> /opt/hakolect/app /opt/hakolect/backups
 curl -I http://127.0.0.1:3000/hakolect/
 ```
 
@@ -78,3 +74,10 @@ curl -I http://127.0.0.1:3000/hakolect/
 - 確認URL
 - 上記3観点のみ依頼
 - fail の場合は「どの手順で / 何が起きたか」を返してもらう
+- deploy 前後で bookmark / folder 件数が急減していないことを確認してから owner に渡す
+
+
+### 恒久ルール
+- 本番 DB は `/opt/hakolect/persist/hakolect.db` に置く
+- `tar` / `scp` / `rsync` で working tree を丸ごと送らない
+- やむを得ず転送する場合も `data/` は必ず除外する
